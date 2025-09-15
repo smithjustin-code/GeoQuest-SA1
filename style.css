@@ -108,9 +108,14 @@ h3{ font-size:14px; color:var(--text-dim) }
 
 /* ---------- Loading ---------- */
 #loading{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  background:rgba(10,26,48,.85); z-index:4; font-size:14px; letter-spacing:.08em;
+  position:absolute; inset:0;
+  display:none;                 /* hidden by default */
+  align-items:center; justify-content:center;
+  background:rgba(10,26,48,.85);
+  z-index:5;                    /* above map UI, below modal */
+  font-size:14px; letter-spacing:.08em;
 }
+#mapScreen.loading #loading{ display:flex; }  /* show when we add .loading */
 
 /* ---------- Toasts ---------- */
 #toasts{ position:fixed; right:10px; top:64px; display:flex; flex-direction:column; gap:8px; z-index:6 }
