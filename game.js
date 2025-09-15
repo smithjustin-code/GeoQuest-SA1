@@ -64,11 +64,20 @@ function updateHUD(){
   hud.tp().textContent = `TP🚶 ${state.tp}`;
   hud.visited().textContent = `Visited📍 ${state.visited.length}/${DATA.countries.length}`;
   hud.sound().textContent = state.sound?'🔊':'🔇';
+  measureHud();   // <<< keep scenes pinned under the real HUD height
 }
 function toast(msg){
   const host=document.getElementById('toasts'); if(!host) return;
   const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
   host.appendChild(t); setTimeout(()=>t.remove(),2700);
+}
+/* === Measure HUD and lock scenes under it === */
+function measureHud(){
+  const hudEl = document.getElementById('hud');
+  if(!hudEl) return;
+  // Read actual pixel height and write to CSS var
+  const h = Math.ceil(hudEl.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--hud-h', h + 'px');
 }
 
 /* ===================== Audio: chiptune + sfx ===================== */
@@ -698,8 +707,9 @@ function init(){
   generateDither();
   mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
   bindMapEvents();
-  loadState(); setupTitle(); updateHUD();
-
+   loadState(); setupTitle(); updateHUD();
+  measureHud();                      // initial measurement
+  window.addEventListener('resize', measureHud);
   generateTopoBitmap(); buildMarkers(); buildSprites();
   requestAnimationFrame(()=>{ const L=document.getElementById('loading'); if(L) L.style.display='none'; });
 
