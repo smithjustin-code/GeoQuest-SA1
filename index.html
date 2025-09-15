@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Andes &amp; Amazons: South America Sleuth</title>
+  <style>
+    /* Base reset */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      background: #0A1A30;
+      color: #E6EDF7;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    /* Scanline overlay for CRT effect */
+    .scanlines::after {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.1) 0px,
+        rgba(0, 0, 0, 0.1) 2px,
+        transparent 3px,
+        transparent 4px
+      );
+      mix-blend-mode: multiply;
+    }
+    /* HUD styling */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 4px 8px;
+      font-size: 12px;
+      background: rgba(10, 26, 48, 0.8);
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #hud span {
+      margin-right: 12px;
+    }
+    /* Scene container */
+    .scene {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      box-sizing: border-box;
+      padding-top: 40px; /* leave space for HUD */
+    }
+    .show {
+      display: block;
+    }
+    /* Buttons with pixelated dither background; background-image set in JS */
+    .btn {
+      display: inline-block;
+      color: #E6EDF7;
+      border: 2px solid #4CC9F0;
+      padding: 6px 12px;
+      margin: 4px;
+      cursor: pointer;
+      background-size: 8px 8px;
+      text-align: center;
+      user-select: none;
+      image-rendering: pixelated;
+      transition: border-color 0.2s;
+      /* subtle inner shadow to give buttons a raised pixel look */
+      box-shadow: 0 0 0 2px #0A1A30 inset;
+    }
+    .btn:hover {
+      border-color: #FFD166;
+    }
+    .btn:focus {
+      outline: 1px dashed #FFD166;
+    }
+    /* Centered container for title/hq */
+    .center {
+      max-width: 640px;
+      margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    /* Map canvas container */
+    #mapCanvas {
+      width: 100%;
+      height: calc(100% - 60px);
+      image-rendering: pixelated;
+      display: block;
+    }
+    /* Country content styling */
+    #countryContent {
+      max-width: 640px;
+      margin: auto;
+      padding: 20px;
+    }
+    #countryContent h2 {
+      font-size: 24px;
+      margin: 8px 0;
+    }
+    #countryContent .npc {
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+    /* Brochure styling */
+    #countryContent .brochure {
+      background: #0F2A47;
+      border: 1px solid #4CC9F0;
+      padding: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    /* MCQ choices */
+    .choice {
+      display: block;
+      border: 2px solid #4CC9F0;
+      padding: 6px 8px;
+      margin: 6px 0;
+      cursor: pointer;
+      background-size: 8px 8px;
+      image-rendering: pixelated;
+    }
+    .choice.correct { border-color: #38B000; }
+    .choice.incorrect { border-color: #FF5964; }
+    .choice:focus { outline: 1px dashed #FFD166; }
+    /* Modal overlay for verify */
+    #modalOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 26, 48, 0.9);
+      display: none;
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+    }
+    #modalOverlay.active {
+      display: flex;
+    }
+    #modal {
+      background: #0A1A30;
+      border: 2px solid #4CC9F0;
+      padding: 20px;
+      max-width: 480px;
+      width: 90%;
+      color: #E6EDF7;
+      position: relative;
+    }
+    #modal input {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 8px;
+      border: 1px solid #4CC9F0;
+      background: #0F2A47;
+      color: #E6EDF7;
+    }
+    #modal .close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      cursor: pointer;
+      color: #E6EDF7;
+    }
+  </style>
+</head>
+<body>
+  <div id="game" class="scanlines">
+    <div id="hud">
+      <span id="hudCase"></span>
+      <span id="hudStudent"></span>
+      <span id="hudClass"></span>
+      <span id="hudXP"></span>
+      <span id="hudTP"></span>
+      <span id="hudVisited"></span>
+      <span id="hudSound"></span>
+    </div>
+    <!-- Title Screen -->
+    <div id="titleScreen" class="scene">
+      <div class="center">
+        <h1>Andes &amp; Amazons</h1>
+        <h2>South America Sleuth</h2>
+        <div id="titleButtons"></div>
+        <div id="howTo" style="display:none; text-align:left; margin-top:12px;">
+          <h3>How to Play</h3>
+          <p>Travel across South America to solve cases. Click countries on the map to travel (costs 1 TP). Each first visit presents a geography question worth XP. Collect enough XP and visits to solve the case. Use the HUD to track progress. Keyboard controls: Tab/Enter to navigate, 1–4 to answer, M to toggle sound, T to open teacher verify.</p>
+        </div>
+      </div>
+    </div>
+    <!-- HQ Screen -->
+    <div id="hqScreen" class="scene">
+      <div class="center">
+        <h2>Headquarters</h2>
+        <p id="hqIntro"></p>
+        <div id="caseList"></div>
+        <div style="margin-top:12px;">
+          <label>Student Name: <input id="studentName" type="text" placeholder="Your name"></label><br>
+          <label>Class: <input id="className" type="text" placeholder="Class"></label><br>
+        </div>
+        <div id="hqButtons" style="margin-top:12px;"></div>
+      </div>
+    </div>
+    <!-- Map Screen -->
+    <div id="mapScreen" class="scene">
+      <canvas id="mapCanvas" width="600" height="500"></canvas>
+      <div style="position:absolute; bottom:10px; left:10px;">
+        <div id="mapMsg" style="margin-bottom:8px;"></div>
+        <div id="mapButtons"></div>
+      </div>
+    </div>
+    <!-- Country Screen -->
+    <div id="countryScreen" class="scene">
+      <div id="countryContent"></div>
+    </div>
+    <!-- Final Screen -->
+    <div id="finalScreen" class="scene">
+      <div class="center" id="finalContent"></div>
+    </div>
+    <!-- Modal for Verify -->
+    <div id="modalOverlay">
+      <div id="modal">
+        <div class="close" id="modalClose">X</div>
+        <h3>Verify Completion Code</h3>
+        <label>Name: <input id="verifyName" type="text"></label>
+        <label>Class: <input id="verifyClass" type="text"></label>
+        <label>XP: <input id="verifyXP" type="number" min="0"></label>
+        <label>Visited: <input id="verifyVisited" type="number" min="0"></label>
+        <label>Code: <input id="verifyCode" type="text"></label>
+        <div id="verifyResult" style="margin-top:8px;"></div>
+        <div class="btn" id="verifyBtn">Check</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    /* Game data as provided */
+    const DATA = {
+      countries: [
+        {
+          id:"peru", name:"Peru", capital:"Lima",
+          regionFacts:[
+            "The Andes run north–south; many cities sit on the coastal desert or high plateaus.",
+            "Machu Picchu reflects Inca engineering in steep mountain terrain.",
+            "Quechua and Aymara languages are part of Peru’s cultural heritage."
+          ],
+          npcs:[ "Guide in Cusco", "Archivist in Lima", "Ranger in the Sacred Valley" ],
+          questions:[
+            {
+              id:"pe_q1", topic:"Physical Geography", dok:2,
+              prompt:"Which landform best explains why Peru has many high-altitude settlements?",
+              choices:["The Pampas","The Andes","The Amazon Basin","The Atacama Plateau"],
+              answer:1, explain:"Peru’s Andes create plateaus and valleys where high-altitude cities formed."
+            },
+            {
+              id:"pe_q2", topic:"Culture", dok:1,
+              prompt:"Which ancient civilization is closely associated with Peru?",
+              choices:["Aztec","Inca","Maya","Olmec"],
+              answer:1, explain:"The Inca Empire centered in the Andes with Cusco as a capital."
+            }
+          ],
+          events:[
+            { id:"pe_e1", title:"High-Altitude Trek", effect:{tp:-1},
+              text:"Thin air slows you. You conserve energy.",
+              quickCheck:{
+                prompt:"At high elevations, which is lower than at sea level?",
+                choices:["Temperature","Air pressure","Both A and B","Neither"],
+                answer:2, explain:"Both air pressure and temperature tend to be lower."
+              }
+            }
+          ],
+          lat:-12.0464, lon:-77.0428
+          ,brochure:"Journey through Peru’s diverse landscapes: wander Lima’s colonial plazas, marvel at ancient Inca ruins in Cusco and Machu Picchu, and explore the towering Andes and lush Amazon Basin. Sample ceviche and vibrant Andean crafts on your adventure."
+        },
+        {
+          id:"argentina", name:"Argentina", capital:"Buenos Aires",
+          regionFacts:[
+            "The Pampas grasslands support agriculture and cattle ranching.",
+            "Patagonia is windy and sparsely populated with steppe and mountains.",
+            "Tango music and dance emerged in Buenos Aires."
+          ],
+          npcs:[ "Port Worker at La Boca", "Gaucho Guide", "Museum Curator" ],
+          questions:[
+            {
+              id:"ar_q1", topic:"Economy & Land Use", dok:2,
+              prompt:"Which region is most tied to Argentina’s grain and cattle exports?",
+              choices:["Atacama","Pampas","Altiplano","Guiana Highlands"],
+              answer:1, explain:"The Pampas are fertile plains ideal for ranching and crops."
+            },
+            {
+              id:"ar_q2", topic:"Culture", dok:1,
+              prompt:"Which city is famous for Tango culture?",
+              choices:["Lima","Quito","Buenos Aires","La Paz"],
+              answer:2, explain:"Tango is closely associated with Buenos Aires."
+            }
+          ],
+          events:[
+            { id:"ar_e1", title:"Patagonian Crosswinds", effect:{tp:-1},
+              text:"Strong winds force a slower route."
+            }
+          ],
+          lat:-34.6037, lon:-58.3816
+          ,brochure:"Dance through Buenos Aires’ tango halls, ride with gauchos across the fertile Pampas, sip mate beneath Patagonian peaks, and stand at the edge of thunderous Iguaçu Falls. Argentina’s cities and landscapes pulse with music and adventure."
+        },
+        {
+          id:"brazil", name:"Brazil", capital:"Brasília",
+          regionFacts:[
+            "The Amazon Basin holds the world’s largest tropical rainforest.",
+            "Most people speak Portuguese; Rio de Janeiro is famous for Carnival.",
+            "Iguaçu Falls straddles the border region with Argentina/Paraguay."
+          ],
+          npcs:[ "Researcher on the Amazon", "Carnival Organizer", "Park Ranger at Iguaçu" ],
+          questions:[
+            {
+              id:"br_q1", topic:"Biomes", dok:1,
+              prompt:"Which biome dominates northern Brazil?",
+              choices:["Tundra","Tropical Rainforest","Mediterranean Shrub","Desert"],
+              answer:1, explain:"The Amazon rainforest spans much of northern Brazil."
+            },
+            {
+              id:"br_q2", topic:"Language", dok:1,
+              prompt:"Which language is official in Brazil?",
+              choices:["Spanish","Portuguese","French","English"],
+              answer:1, explain:"Brazil’s official language is Portuguese."
+            }
+          ],
+          events:[
+            { id:"br_e1", title:"River Flooding", effect:{tp:-1},
+              text:"Seasonal floods slow boat travel through a tributary."
+            }
+          ],
+          lat:-15.7939, lon:-47.8828
+          ,brochure:"From sun-soaked Rio beaches to Brasília’s modernist skyline, Brazil dazzles: immerse yourself in Amazon rainforest biodiversity, dance through Carnival’s rhythm-filled streets, and feel the spray of Iguaçu Falls – all while enjoying samba and tropical flavors."
+        },
+        {
+          id:"chile", name:"Chile", capital:"Santiago",
+          regionFacts:[
+            "The Atacama Desert is among the driest places on Earth.",
+            "Long, narrow Chile spans many latitudes and climates.",
+            "The Andes form a towering barrier along the eastern border."
+          ],
+          npcs:[ "Astronomer in Atacama", "Harbor Captain in Valparaíso", "Park Ranger in Patagonia" ],
+          questions:[
+            {
+              id:"cl_q1", topic:"Climate", dok:2,
+              prompt:"Why is northern Chile’s Atacama so dry?",
+              choices:["Rain shadow and cold ocean currents","Monsoons","Proximity to equator","Dense forests"],
+              answer:0, explain:"The Andes rain shadow and the cold Humboldt Current reduce rainfall."
+            },
+            {
+              id:"cl_q2", topic:"Physical Geography", dok:1,
+              prompt:"Which mountain range runs along Chile’s border?",
+              choices:["Appalachians","Andes","Alps","Himalayas"],
+              answer:1, explain:"Chile lies along the Andes."
+            }
+          ],
+          events:[
+            { id:"cl_e1", title:"Humboldt Fog", effect:{tp:+1},
+              text:"Cool fog gives you a respite; you plan ahead (+1 TP)."
+            }
+          ],
+          lat:-33.4489, lon:-70.6693
+          ,brochure:"Traverse Chile’s extreme length: gaze at the starry skies of the Atacama Desert, savor seafood in colorful Valparaíso, hike glaciers in Patagonia, and toast adventure with a glass of Carménère in Santiago’s vineyards."
+        }
+        ,
+        // Additional country: Uruguay
+        {
+          id:"uruguay", name:"Uruguay", capital:"Montevideo",
+          regionFacts:[
+            "The Río de la Plata forms a broad estuary near Uruguay.",
+            "Uruguay has rolling pampas similar to Argentina's grasslands.",
+            "Montevideo hosts historic colonial architecture."
+          ],
+          npcs:[ "Farmer on the Pampas", "Harbor Master", "Historian in Montevideo" ],
+          questions:[
+            { id:"uy_q1", topic:"Physical Geography", dok:1,
+              prompt:"Which river basin influences Uruguay's coastline?",
+              choices:["Amazon","Río de la Plata","Orinoco","Magdalena"],
+              answer:1,
+              explain:"The Río de la Plata estuary forms Uruguay’s southern boundary."
+            },
+            { id:"uy_q2", topic:"Culture", dok:1,
+              prompt:"Uruguay shares cultural ties with which neighbor due to gaucho traditions?",
+              choices:["Chile","Argentina","Brazil","Peru"],
+              answer:1,
+              explain:"Gaucho culture extends across Uruguay and Argentina’s pampas."
+            }
+          ],
+          events:[],
+          lat:-34.9011, lon:-56.1645,
+          brochure:"Stroll Montevideo's historic port, unwind on sunny beaches, and discover pastoral pampas and colonial charm."
+        },
+        // Additional country: Paraguay
+        {
+          id:"paraguay", name:"Paraguay", capital:"Asunción",
+          regionFacts:[
+            "Paraguay is landlocked with major rivers Paraguay and Paraná.",
+            "Guaraní language is widely spoken and official.",
+            "The Chaco region is semi-arid and sparsely populated."
+          ],
+          npcs:[ "Market Vendor", "Riverboat Captain", "Rancher in the Chaco" ],
+          questions:[
+            { id:"py_q1", topic:"Physical Geography", dok:1,
+              prompt:"Which river is central to Paraguay's geography?",
+              choices:["Amazon","Paraguay River","Colorado River","Lena River"],
+              answer:1,
+              explain:"The Paraguay River runs through the country and joins the Paraná."
+            },
+            { id:"py_q2", topic:"Border Regions", dok:2,
+              prompt:"Paraguay shares the Iguazú Falls border with which two countries?",
+              choices:["Argentina and Brazil","Peru and Bolivia","Chile and Argentina","Ecuador and Colombia"],
+              answer:0,
+              explain:"The Iguazú River forms part of the boundary between Paraguay, Brazil and Argentina."
+            }
+          ],
+          events:[],
+          lat:-25.2637, lon:-57.5759,
+          brochure:"Step into Paraguay's bilingual culture; visit Asunción's vibrant markets and the lush Chaco; enjoy tereré and traditional music."
+        }
+      ],
+      edges: [
+        ["peru","brazil"],["peru","chile"],["peru","argentina"],
+        ["brazil","argentina"],["brazil","chile"],
+        ["argentina","chile"],
+        // additional edges for new countries
+        ["uruguay","argentina"],["uruguay","brazil"],
+        ["paraguay","argentina"],["paraguay","brazil"],["paraguay","uruguay"]
+      ],
+      cases: [
+        {
+          id:"case_relic",
+          title:"The Relic of the Condor",
+          hook:"A museum courier vanished with an Inca relic. Follow the trail of clues across South America.",
+          winCondition:{ minXP:14, minVisited:6, finalQuestion:{
+            prompt:"Where is the relic most likely hidden?",
+            choices:["In a port warehouse in Buenos Aires","At a riverside market in Manaus","In a mountain shrine near Cusco","Inside a lighthouse in Valparaíso"],
+            answer:2,
+            explain:"Clues point to high-altitude ritual sites along Inca routes."
+          }}
+        },
+        {
+          id:"case_iguacu",
+          title:"Mystery at Iguaçu Falls",
+          hook:"Strange shipments pass through border towns. Track the route and reveal the mastermind.",
+          winCondition:{ minXP:14, minVisited:6, finalQuestion:{
+            prompt:"Which border region fits the clues?",
+            choices:["Iguaçu (Brazil/Argentina)","Altiplano (Peru/Bolivia)","Atacama (Chile)","Titicaca (Peru/Bolivia)"],
+            answer:0,
+            explain:"Clues referenced triple-border trade and a massive waterfall complex."
+          }}
+        }
+      ]
+    };
+
+    /* Code generation functions */
+    const SECRET = "SC7Geo2025-SA";
+    function fnv1aHex(str){
+      let h = 0x811c9dc5 >>> 0;
+      for(let i=0; i<str.length; i++){
+        h ^= str.charCodeAt(i);
+        h = (h + ((h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24))) >>> 0;
+      }
+      return ("00000000" + h.toString(16)).slice(-8).toUpperCase();
+    }
+    function base36(n,pad=2){
+      return Math.max(0, n|0).toString(36).toUpperCase().padStart(pad, "0");
+    }
+    function makeCode(name, cls, xp, visited){
+      const payload = `${SECRET}|${name}|${cls}|${xp}|${visited}|AndesAmazons`;
+      const sig = fnv1aHex(payload).slice(0,6);
+      return `SA-${base36(xp)}${base36(visited)}-${sig}`;
+    }
+
+    /* Game state */
+    let state = {
+      xp: 0,
+      tp: 8,
+      visited: [], // array of country ids
+      answered: [], // answered question ids
+      eventsSeen: [], // event ids seen
+      currentCase: null,
+      location: null,
+      studentName: '',
+      className: '',
+      sound: true,
+      casesCompleted: {},
+      finalAnswered: false
+    };
+
+    const SAVE_KEY = 'AndesAmazonsSave';
+    function saveState(){
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    }
+    function loadState(){
+      const data = localStorage.getItem(SAVE_KEY);
+      if(data){
+        try{
+          const obj = JSON.parse(data);
+          Object.assign(state, obj);
+        }catch(e){ console.error('Load failed', e); }
+      }
+    }
+
+    /* HUD elements references */
+    function hudCase(){ return document.getElementById('hudCase'); }
+    function hudStudent(){ return document.getElementById('hudStudent'); }
+    function hudClass(){ return document.getElementById('hudClass'); }
+    function hudXP(){ return document.getElementById('hudXP'); }
+    function hudTP(){ return document.getElementById('hudTP'); }
+    function hudVisited(){ return document.getElementById('hudVisited'); }
+    function hudSound(){ return document.getElementById('hudSound'); }
+
+    /* Audio setup */
+    let audioCtx;
+    function beep(freq = 440, duration=0.1){
+      if(!state.sound) return;
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    /* Utility for dither pattern generation */
+    let ditherDataUrl = '';
+    function generateDither(){
+      /*
+       * Create a simple checkerboard dither pattern instead of purely random noise.
+       * Alternating squares produce a crisp retro texture without excessive grain.
+       */
+      const c = document.createElement('canvas');
+      c.width = 8; c.height = 8;
+      const ctx = c.getContext('2d');
+      const imgd = ctx.createImageData(8,8);
+      for(let y=0; y<8; y++){
+        for(let x=0; x<8; x++){
+          const idx = (y*8 + x)*4;
+          // alternate between lighter and darker values to form a checker pattern
+          const val = ((x + y) % 2 === 0) ? 0x1A : 0x0A;
+          imgd.data[idx]   = 10 + val;   // red channel
+          imgd.data[idx+1] = 26 + val;   // green channel
+          imgd.data[idx+2] = 48 + val;   // blue channel
+          imgd.data[idx+3] = 255;        // alpha
+        }
+      }
+      ctx.putImageData(imgd,0,0);
+      ditherDataUrl = c.toDataURL();
+    }
+
+    /* Map projection */
+    let mapBounds = {};
+    let mapCanvas, mapCtx;
+    function computeBounds(){
+      let latMin=90, latMax=-90, lonMin=180, lonMax=-180;
+      DATA.countries.forEach(c=>{
+        if(c.lat < latMin) latMin = c.lat;
+        if(c.lat > latMax) latMax = c.lat;
+        if(c.lon < lonMin) lonMin = c.lon;
+        if(c.lon > lonMax) lonMax = c.lon;
+      });
+      // Add margins
+      latMin -= 5; latMax += 5;
+      lonMin -= 5; lonMax += 5;
+      mapBounds = {latMin, latMax, lonMin, lonMax};
+    }
+    function latLonToXY(lat, lon){
+      const {latMin, latMax, lonMin, lonMax} = mapBounds;
+      const x = (lon - lonMin) / (lonMax - lonMin) * mapCanvas.width;
+      const y = (latMax - lat) / (latMax - latMin) * mapCanvas.height;
+      return {x, y};
+    }
+
+    /* Draw a simple pixel-art propeller plane at (x,y) on the map context */
+    function drawPlane(ctx, x, y){
+      // Define plane dimensions
+      const bodyW = 14;
+      const bodyH = 4;
+      // body color and outline
+      ctx.fillStyle = '#FFD166';
+      ctx.strokeStyle = '#0A1A30';
+      ctx.lineWidth = 1;
+      // Body
+      ctx.fillRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
+      // Wings
+      ctx.fillRect(x - bodyW/2 - 2, y - 1, bodyW + 4, 2);
+      // Tail
+      ctx.fillRect(x - bodyW/2 + 2, y - bodyH/2 - 3, 3, 3);
+      // Nose
+      ctx.beginPath();
+      ctx.moveTo(x + bodyW/2, y - bodyH/2);
+      ctx.lineTo(x + bodyW/2 + 3, y);
+      ctx.lineTo(x + bodyW/2, y + bodyH/2);
+      ctx.closePath();
+      ctx.fill();
+      // Propeller (simple cross)
+      ctx.strokeStyle = '#E6EDF7';
+      ctx.beginPath();
+      ctx.moveTo(x + bodyW/2 + 3, y);
+      ctx.lineTo(x + bodyW/2 + 7, y);
+      ctx.moveTo(x + bodyW/2 + 5, y - 2);
+      ctx.lineTo(x + bodyW/2 + 5, y + 2);
+      ctx.stroke();
+      // Outline around plane
+      ctx.strokeStyle = '#0A1A30';
+      ctx.strokeRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
+    }
+
+    /* Generate background map with noise/gradient */
+    let baseMapImage;
+    function generateBaseMap(){
+      /*
+       * Generate a richer pixel map with deterministic noise to provide more visual interest.
+       * A simple sine-based noise function introduces variation without external libraries.
+       */
+      const w = 320;
+      const h = 340;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      const imgd = ctx.createImageData(w,h);
+      // deterministic noise helper
+      function noise(x,y){
+        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        return n - Math.floor(n);
+      }
+      for(let y=0; y<h; y++){
+        for(let x=0; x<w; x++){
+          const idx = (y*w + x)*4;
+          const t = y / h;
+          let r,g,b;
+          const landLine = 0.55;
+          if(t > landLine){
+            // land: greens with subtle variation
+            const n = noise(x*0.08, y*0.08);
+            r = 50 + n*40;
+            g = 100 + n*60;
+            b = 50 + n*30;
+          } else {
+            // ocean: blues with subtle variation
+            const n = noise(x*0.08+100, y*0.08+100);
+            r = 15 + n*20;
+            g = 50 + n*40;
+            b = 100 + n*60;
+          }
+          // simple height accent: lighten towards top-left to simulate Andes
+          const heightFactor = Math.max(0, 1 - (x + y) / (w * 0.7));
+          r += heightFactor * 20;
+          g += heightFactor * 20;
+          b += heightFactor * 10;
+          imgd.data[idx]   = Math.min(255, r);
+          imgd.data[idx+1] = Math.min(255, g);
+          imgd.data[idx+2] = Math.min(255, b);
+          imgd.data[idx+3] = 255;
+        }
+      }
+      ctx.putImageData(imgd,0,0);
+      baseMapImage = c;
+    }
+
+    /* Scene handling */
+    function showScene(id){
+      document.querySelectorAll('.scene').forEach(el=>el.classList.remove('show'));
+      const el = document.getElementById(id);
+      if(el) el.classList.add('show');
+      updateHUD();
+    }
+    function updateHUD(){
+      hudCase().textContent = state.currentCase ? `Case: ${getCaseById(state.currentCase).title}` : '';
+      hudStudent().textContent = state.studentName ? `Student: ${state.studentName}` : '';
+      hudClass().textContent = state.className ? `Class: ${state.className}` : '';
+      hudXP().textContent = `XP⭐ ${state.xp}`;
+      hudTP().textContent = `TP🚶 ${state.tp}`;
+      const totalCountries = DATA.countries.length;
+      hudVisited().textContent = `Visited📍 ${state.visited.length}/${totalCountries}`;
+      hudSound().textContent = state.sound ? '🔊' : '🔇';
+    }
+
+    /* Helpers to get country/case by id */
+    function getCountryById(id){ return DATA.countries.find(c=>c.id===id); }
+    function getCaseById(id){ return DATA.cases.find(c=>c.id===id); }
+
+    /* Title Screen setup */
+    function setupTitleScreen(){
+      const container = document.getElementById('titleButtons');
+      container.innerHTML = '';
+      // Start or Continue button
+      if(state.currentCase && !state.finalAnswered){
+        const btnCont = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+        container.appendChild(btnCont);
+      } else {
+        const btnStart = createButton('Start', () => {
+          // If no name/class saved, still allow; will ask in HQ
+          showScene('hqScreen');
+          setupHQ();
+        });
+        container.appendChild(btnStart);
+      }
+      // Always show New Game to reset
+      const btnNew = createButton('New Game', () => { newGame(); });
+      container.appendChild(btnNew);
+      const btnHow = createButton('How to Play', () => {
+        const how = document.getElementById('howTo');
+        how.style.display = how.style.display === 'none' ? 'block' : 'none';
+      });
+      container.appendChild(btnHow);
+      const btnSound = createButton(state.sound ? 'Sound Off' : 'Sound On', () => {
+        state.sound = !state.sound; saveState(); updateHUD(); setupTitleScreen(); beep(660,0.05);
+      });
+      container.appendChild(btnSound);
+    }
+
+    /* HQ Screen setup */
+    function setupHQ(){
+      const hqIntro = document.getElementById('hqIntro');
+      hqIntro.textContent = 'Select a case to investigate.';
+      const caseList = document.getElementById('caseList');
+      caseList.innerHTML = '';
+      DATA.cases.forEach(c => {
+        const div = document.createElement('div');
+        div.style.margin = '8px 0';
+        const title = document.createElement('strong');
+        title.textContent = c.title;
+        div.appendChild(title);
+        const hook = document.createElement('p');
+        hook.textContent = c.hook;
+        hook.style.fontSize = '12px';
+        div.appendChild(hook);
+        const btn = createButton('Play', () => {
+          state.currentCase = c.id;
+          state.xp = 0;
+          state.tp = 8;
+          state.visited = [];
+          state.answered = [];
+          state.eventsSeen = [];
+          state.location = null;
+          state.finalAnswered = false;
+          saveState();
+          showScene('mapScreen');
+          renderMap();
+        });
+        div.appendChild(btn);
+        caseList.appendChild(div);
+      });
+      document.getElementById('studentName').value = state.studentName;
+      document.getElementById('className').value = state.className;
+      const hqButtons = document.getElementById('hqButtons');
+      hqButtons.innerHTML = '';
+      const saveBtn = createButton('Save & Continue', () => {
+        state.studentName = document.getElementById('studentName').value.trim();
+        state.className = document.getElementById('className').value.trim();
+        saveState();
+        beep(550,0.05);
+        setupHQ();
+      });
+      hqButtons.appendChild(saveBtn);
+      const backBtn = createButton('Back to Title', () => {
+        showScene('titleScreen');
+        setupTitleScreen();
+      });
+      hqButtons.appendChild(backBtn);
+    }
+
+    /* Create a button using the dither background */
+    function createButton(label, handler){
+      const btn = document.createElement('div');
+      btn.className = 'btn';
+      btn.textContent = label;
+      btn.style.backgroundImage = `url(${ditherDataUrl})`;
+      btn.tabIndex = 0;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handler();
+        beep(440, 0.05);
+      });
+      btn.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); handler(); beep(440,0.05); }
+      });
+      return btn;
+    }
+
+    /* Start a new game */
+    function newGame(){
+      state = {
+        xp: 0,
+        tp: 8,
+        visited: [],
+        answered: [],
+        eventsSeen: [],
+        currentCase: null,
+        location: null,
+        studentName: '',
+        className: '',
+        sound: state.sound,
+        casesCompleted: {},
+        finalAnswered: false
+      };
+      saveState();
+      setupTitleScreen();
+      showScene('titleScreen');
+    }
+
+    /* Map rendering and interaction */
+    function renderMap(){
+      if(!mapCanvas){ mapCanvas = document.getElementById('mapCanvas'); mapCtx = mapCanvas.getContext('2d'); }
+      mapCanvas.width = mapCanvas.clientWidth;
+      mapCanvas.height = mapCanvas.clientHeight;
+      mapCtx.imageSmoothingEnabled = false;
+      mapCtx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
+      mapCtx.drawImage(baseMapImage, 0, 0, baseMapImage.width, baseMapImage.height, 0, 0, mapCanvas.width, mapCanvas.height);
+      // draw edges
+      mapCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+      mapCtx.lineWidth = 1;
+      DATA.edges.forEach(([a,b]) => {
+        const A = getCountryById(a);
+        const B = getCountryById(b);
+        const pA = latLonToXY(A.lat, A.lon);
+        const pB = latLonToXY(B.lat, B.lon);
+        mapCtx.beginPath();
+        mapCtx.moveTo(pA.x, pA.y);
+        mapCtx.lineTo(pB.x, pB.y);
+        mapCtx.stroke();
+      });
+      // draw markers
+      DATA.countries.forEach(c => {
+        const {x, y} = latLonToXY(c.lat, c.lon);
+        let size = 8;
+        let color;
+        const isCurrent = state.location === c.id;
+        if(isCurrent){
+          // highlight current location with distinct color, but do not draw star; plane will be drawn separately
+          color = '#FFD166';
+          size = 10;
+        } else if(state.visited.includes(c.id)){
+          color = '#38B000';
+        } else {
+          color = '#4CC9F0';
+        }
+        mapCtx.fillStyle = color;
+        // draw a diamond marker
+        mapCtx.beginPath();
+        mapCtx.moveTo(x, y - size/2);
+        mapCtx.lineTo(x + size/2, y);
+        mapCtx.lineTo(x, y + size/2);
+        mapCtx.lineTo(x - size/2, y);
+        mapCtx.closePath();
+        mapCtx.fill();
+        // outline for contrast
+        mapCtx.strokeStyle = '#0A1A30';
+        mapCtx.lineWidth = 1;
+        mapCtx.stroke();
+      });
+      // draw player plane over current location
+      if(state.location){
+        const curr = getCountryById(state.location);
+        const {x, y} = latLonToXY(curr.lat, curr.lon);
+        drawPlane(mapCtx, x, y);
+      }
+      // handle click
+      mapCanvas.onclick = (evt) => {
+        const rect = mapCanvas.getBoundingClientRect();
+        const mx = evt.clientX - rect.left;
+        const my = evt.clientY - rect.top;
+        // find nearest country marker to click; pick the one with smallest distance within large threshold
+        let clicked = null;
+        let minDist = Infinity;
+        DATA.countries.forEach(c => {
+          const {x, y} = latLonToXY(c.lat, c.lon);
+          const dx = mx - x;
+          const dy = my - y;
+          const d2 = dx*dx + dy*dy;
+          if(d2 < minDist){
+            minDist = d2;
+            clicked = c.id;
+          }
+        });
+        // Only click if within a very large area to prevent misclick on edges
+        const maxThreshold = (mapCanvas.width + mapCanvas.height) * 0.25; // quarter of perimeter squared approx
+        if(minDist > maxThreshold*maxThreshold) clicked = null;
+        if(clicked){ travelTo(clicked); }
+      };
+      // update bottom controls
+      const msgDiv = document.getElementById('mapMsg');
+      const btnsDiv = document.getElementById('mapButtons');
+      msgDiv.textContent = state.location ? `Current: ${getCountryById(state.location).name}` : 'Select your starting country';
+      btnsDiv.innerHTML = '';
+      if(state.currentCase){
+        const caseData = getCaseById(state.currentCase);
+        if(!state.finalAnswered && state.xp >= caseData.winCondition.minXP && state.visited.length >= caseData.winCondition.minVisited){
+          const btn = createButton('Resolve Case', () => { showFinalQuestion(); });
+          btnsDiv.appendChild(btn);
+        }
+      }
+      const back = createButton('HQ', () => { showScene('hqScreen'); setupHQ(); });
+      btnsDiv.appendChild(back);
+    }
+
+    /* Travel to a country */
+    function travelTo(id){
+      if(state.tp <= 0 && state.location){ alert('No Travel Points!'); return; }
+      if(state.location){
+        const allowed = DATA.edges.some(([a,b]) => (a===state.location && b===id) || (b===state.location && a===id));
+        if(!allowed){ alert('You cannot travel directly there.'); return; }
+      }
+      if(state.location) state.tp -= 1;
+      state.location = id;
+      if(!state.visited.includes(id)) state.visited.push(id);
+      saveState();
+      if(Math.random() < 0.4) maybeEvent(id);
+      showCountry(id);
+    }
+
+    /* Country screen display */
+    function showCountry(id){
+      const country = getCountryById(id);
+      const contentDiv = document.getElementById('countryContent');
+      contentDiv.innerHTML = '';
+      const title = document.createElement('h2');
+      title.textContent = `${country.name} (${country.capital})`;
+      contentDiv.appendChild(title);
+      const npcName = country.npcs[Math.floor(Math.random()*country.npcs.length)];
+      const npcDiv = document.createElement('div');
+      npcDiv.className = 'npc';
+      npcDiv.textContent = `${npcName}:`;
+      contentDiv.appendChild(npcDiv);
+      // show event message if triggered (maybeEvent appended before)
+      // Determine question
+      const remainingQs = country.questions.filter(q => !state.answered.includes(q.id));
+      if(remainingQs.length > 0){
+        const q = remainingQs[Math.floor(Math.random()*remainingQs.length)];
+        const p = document.createElement('p');
+        p.textContent = q.prompt;
+        contentDiv.appendChild(p);
+        q.choices.forEach((choiceText, idx) => {
+          const ch = document.createElement('div');
+          ch.className = 'choice';
+          ch.textContent = `${idx+1}. ${choiceText}`;
+          ch.style.backgroundImage = `url(${ditherDataUrl})`;
+          ch.tabIndex = 0;
+          ch.addEventListener('click', () => { handleAnswer(q, idx, ch); });
+          ch.addEventListener('keydown', (e) => {
+            if(['1','2','3','4'].includes(e.key)){
+              const i = parseInt(e.key)-1;
+              if(i>=0 && i<q.choices.length) handleAnswer(q,i,ch);
+            }
+            if(e.key === 'Enter' || e.key === ' ') ch.click();
+          });
+          contentDiv.appendChild(ch);
+        });
+      } else {
+        const fact = country.regionFacts[Math.floor(Math.random()*country.regionFacts.length)];
+        const p = document.createElement('p');
+        p.textContent = fact;
+        contentDiv.appendChild(p);
+        const okBtn = createButton('Back to Map', () => { showScene('mapScreen'); renderMap(); });
+        contentDiv.appendChild(okBtn);
+      }
+      // Always show travel brochure for this location if available
+      if(country.brochure){
+        const br = document.createElement('div');
+        br.className = 'brochure';
+        br.textContent = country.brochure;
+        contentDiv.appendChild(br);
+      }
+      showScene('countryScreen');
+    }
+
+    /* Handle answer selection */
+    function handleAnswer(question, idx, element){
+      if(element.dataset.answered) return;
+      element.dataset.answered = 'true';
+      const correct = idx === question.answer;
+      if(correct){ state.xp += 2; element.classList.add('correct'); beep(880, 0.15); }
+      else { state.xp = Math.max(0, state.xp - 1); element.classList.add('incorrect'); beep(220, 0.15); }
+      state.answered.push(question.id);
+      saveState();
+      setTimeout(() => {
+        const explain = document.createElement('p');
+        explain.style.fontStyle = 'italic';
+        explain.textContent = question.explain;
+        element.parentNode.appendChild(explain);
+        const okBtn = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+        element.parentNode.appendChild(okBtn);
+      }, 300);
+      const siblings = element.parentNode.querySelectorAll('.choice');
+      siblings.forEach(ch => {
+        ch.style.pointerEvents = 'none';
+      });
+    }
+
+    /* Random events */
+    function maybeEvent(id){
+      const country = getCountryById(id);
+      if(!country.events || country.events.length === 0) return;
+      const eventsLeft = country.events.filter(e => !state.eventsSeen.includes(e.id));
+      let evt;
+      if(eventsLeft.length > 0) evt = eventsLeft[Math.floor(Math.random()*eventsLeft.length)];
+      else evt = country.events[Math.floor(Math.random()*country.events.length)];
+      state.eventsSeen.push(evt.id);
+      if(evt.effect && typeof evt.effect.tp === 'number'){
+        state.tp += evt.effect.tp;
+        if(state.tp < 0) state.tp = 0;
+      }
+      saveState();
+      const contentDiv = document.getElementById('countryContent');
+      const msg = document.createElement('div');
+      msg.style.margin = '8px 0';
+      msg.innerHTML = `<strong>Event:</strong> ${evt.title}<br>${evt.text}`;
+      contentDiv.appendChild(msg);
+      if(evt.quickCheck){
+        const qc = evt.quickCheck;
+        const p = document.createElement('p');
+        p.textContent = qc.prompt;
+        contentDiv.appendChild(p);
+        qc.choices.forEach((text, i) => {
+          const ch = document.createElement('div');
+          ch.className = 'choice';
+          ch.textContent = `${i+1}. ${text}`;
+          ch.style.backgroundImage = `url(${ditherDataUrl})`;
+          ch.tabIndex = 0;
+          ch.addEventListener('click', () => { handleQC(qc, i, ch); });
+          ch.addEventListener('keydown', (e) => {
+            if(['1','2','3','4'].includes(e.key)){
+              const idxSel = parseInt(e.key)-1;
+              if(idxSel>=0 && idxSel<qc.choices.length) handleQC(qc, idxSel, ch);
+            }
+            if(e.key === 'Enter' || e.key === ' ') ch.click();
+          });
+          contentDiv.appendChild(ch);
+        });
+        function handleQC(qcObj, idxSel, clickedEl){
+          if(clickedEl.dataset.answered) return;
+          clickedEl.dataset.answered = 'true';
+          const correct = idxSel === qcObj.answer;
+          if(correct){ state.xp += 2; clickedEl.classList.add('correct'); beep(880,0.15); }
+          else { state.xp = Math.max(0,state.xp-1); clickedEl.classList.add('incorrect'); beep(220,0.15); }
+          saveState();
+          setTimeout(() => {
+            const ex = document.createElement('p');
+            ex.style.fontStyle = 'italic';
+            ex.textContent = qcObj.explain;
+            contentDiv.appendChild(ex);
+            const cont = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+            contentDiv.appendChild(cont);
+          }, 300);
+          const sibs = clickedEl.parentNode.querySelectorAll('.choice');
+          sibs.forEach(cc => { cc.style.pointerEvents = 'none'; });
+        }
+      }
+    }
+
+    /* Final question / resolution */
+    function showFinalQuestion(){
+      const caseData = getCaseById(state.currentCase);
+      const fQ = caseData.winCondition.finalQuestion;
+      const finalDiv = document.getElementById('finalContent');
+      finalDiv.innerHTML = '';
+      const h = document.createElement('h2');
+      h.textContent = 'Case Resolution';
+      finalDiv.appendChild(h);
+      const p = document.createElement('p');
+      p.textContent = fQ.prompt;
+      finalDiv.appendChild(p);
+      fQ.choices.forEach((text,i) => {
+        const ch = document.createElement('div');
+        ch.className = 'choice';
+        ch.textContent = `${i+1}. ${text}`;
+        ch.style.backgroundImage = `url(${ditherDataUrl})`;
+        ch.tabIndex = 0;
+        ch.addEventListener('click', () => {
+          if(ch.dataset.answered) return;
+          ch.dataset.answered = 'true';
+          const correct = i === fQ.answer;
+          if(correct){ state.xp += 2; ch.classList.add('correct'); beep(880,0.2); }
+          else { state.xp = Math.max(0,state.xp - 2); ch.classList.add('incorrect'); beep(150,0.2); }
+          saveState();
+          setTimeout(() => {
+            const msg = document.createElement('p');
+            msg.innerHTML = correct ? 'You solved the case! ' : 'Incorrect, but case completed.';
+            finalDiv.appendChild(msg);
+            state.finalAnswered = true;
+            state.casesCompleted[state.currentCase] = true;
+            const code = makeCode(state.studentName, state.className, state.xp, state.visited.length);
+            const codeP = document.createElement('p');
+            codeP.innerHTML = `Completion Code: <strong>${code}</strong>`;
+            finalDiv.appendChild(codeP);
+            const againBtn = createButton('Back to HQ', () => {
+              state.currentCase = null;
+              saveState();
+              setupHQ();
+              showScene('hqScreen');
+            });
+            finalDiv.appendChild(againBtn);
+            const verifyBtn = createButton('Verify Code', () => { openVerify(); });
+            finalDiv.appendChild(verifyBtn);
+          }, 300);
+        });
+        ch.addEventListener('keydown', (e) => {
+          if(['1','2','3','4'].includes(e.key)){
+            const idxSel = parseInt(e.key)-1;
+            const children = finalDiv.querySelectorAll('.choice');
+            if(idxSel>=0 && idxSel<children.length) children[idxSel].click();
+          }
+          if(e.key === 'Enter' || e.key === ' ') ch.click();
+        });
+        finalDiv.appendChild(ch);
+      });
+      showScene('finalScreen');
+    }
+
+    /* Verify panel functions */
+    function openVerify(){
+      document.getElementById('modalOverlay').classList.add('active');
+      document.getElementById('verifyResult').textContent = '';
+    }
+    function closeVerify(){
+      document.getElementById('modalOverlay').classList.remove('active');
+    }
+    function checkCode(){
+      const name = document.getElementById('verifyName').value.trim();
+      const cls = document.getElementById('verifyClass').value.trim();
+      const xp = parseInt(document.getElementById('verifyXP').value);
+      const visited = parseInt(document.getElementById('verifyVisited').value);
+      const code = document.getElementById('verifyCode').value.trim().toUpperCase();
+      const expected = makeCode(name, cls, xp, visited);
+      const resultDiv = document.getElementById('verifyResult');
+      if(code === expected){ resultDiv.textContent = 'Valid ✔'; resultDiv.style.color = '#38B000'; }
+      else { resultDiv.textContent = 'Invalid ✖'; resultDiv.style.color = '#FF5964'; }
+    }
+
+    /* Initialize everything */
+    function init(){
+      generateDither();
+      generateBaseMap();
+      computeBounds();
+      loadState();
+      setupTitleScreen();
+      showScene('titleScreen');
+      document.getElementById('modalClose').onclick = closeVerify;
+      document.getElementById('verifyBtn').onclick = checkCode;
+      hudSound().onclick = () => { state.sound = !state.sound; saveState(); updateHUD(); };
+      document.addEventListener('keydown', (e) => {
+        if(e.key === 'm' || e.key === 'M'){ state.sound = !state.sound; saveState(); updateHUD(); beep(660,0.05); }
+        if(e.key === 't' || e.key === 'T'){ openVerify(); }
+        if(e.key === 'Escape'){ closeVerify(); }
+      });
+    }
+    window.onload = init;
+  </script>
+</body>
+</html>
