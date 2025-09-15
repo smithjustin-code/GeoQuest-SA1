@@ -1,1599 +1,869 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Andes &amp; Amazons: South America Sleuth</title>
+  <meta charset="utf-8" />
+  <title>Andes & Amazons: South America Sleuth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    /* Base reset */
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      background: #0A1A30;
-      color: #E6EDF7;
-      font-family: monospace;
-      overflow: hidden;
+    /* --------- Base & CRT --------- */
+    :root{
+      --bg:#0A1A30; --text:#E6EDF7;
+      --cyan:#4CC9F0; --gold:#FFD166; --green:#38B000; --danger:#FF5964;
+      --ocean:#0D2C54; --land:#2E8540;
     }
-    /* Scanline overlay for CRT effect */
-    .scanlines::after {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      background: repeating-linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, 0.1) 0px,
-        rgba(0, 0, 0, 0.1) 2px,
-        transparent 3px,
-        transparent 4px
-      );
-      mix-blend-mode: multiply;
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:monospace;overflow:hidden;}
+    .scanlines::after{
+      content:"";position:fixed;inset:0;pointer-events:none;
+      background:repeating-linear-gradient(to bottom,rgba(0,0,0,.12) 0px,rgba(0,0,0,.12) 2px,transparent 3px,transparent 4px);
+      mix-blend-mode:multiply;
     }
-    /* HUD styling */
-    #hud {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      padding: 4px 8px;
-      font-size: 12px;
-      background: rgba(10, 26, 48, 0.8);
-      z-index: 10;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    #hud span {
-      margin-right: 12px;
-    }
-    /* Scene container */
-    .scene {
-      display: none;
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      overflow-y: auto;
-      box-sizing: border-box;
-      padding-top: 40px; /* leave space for HUD */
-    }
-    .show {
-      display: block;
-    }
-    /* Buttons with pixelated dither background; background-image set in JS */
-    .btn {
-      display: inline-block;
-      color: #E6EDF7;
-      border: 2px solid #4CC9F0;
-      padding: 6px 12px;
-      margin: 4px;
-      cursor: pointer;
-      background-size: 8px 8px;
-      text-align: center;
-      user-select: none;
-      image-rendering: pixelated;
-      transition: border-color 0.2s;
-      /* subtle inner shadow to give buttons a raised pixel look */
-      box-shadow: 0 0 0 2px #0A1A30 inset;
-    }
-    .btn:hover {
-      border-color: #FFD166;
-    }
-    .btn:focus {
-      outline: 1px dashed #FFD166;
-    }
-    /* Centered container for title/hq */
-    .center {
-      max-width: 640px;
-      margin: auto;
-      padding: 20px;
-      text-align: center;
-    }
-    /* Map canvas container */
-    #mapCanvas {
-      width: 100%;
-      height: calc(100% - 60px);
-      image-rendering: pixelated;
-      display: block;
-    }
-    /* Country content styling */
-    #countryContent {
-      max-width: 640px;
-      margin: auto;
-      padding: 20px;
-    }
-    #countryContent h2 {
-      font-size: 24px;
-      margin: 8px 0;
-    }
-    #countryContent .npc {
-      font-style: italic;
-      margin-bottom: 8px;
-    }
-    /* Brochure styling */
-    #countryContent .brochure {
-      background: #0F2A47;
-      border: 1px solid #4CC9F0;
-      padding: 8px;
-      margin-top: 12px;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-    /* MCQ choices */
-    .choice {
-      display: block;
-      border: 2px solid #4CC9F0;
-      padding: 6px 8px;
-      margin: 6px 0;
-      cursor: pointer;
-      background-size: 8px 8px;
-      image-rendering: pixelated;
-    }
-    .choice.correct { border-color: #38B000; }
-    .choice.incorrect { border-color: #FF5964; }
-    .choice:focus { outline: 1px dashed #FFD166; }
-    /* Modal overlay for verify */
-    #modalOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(10, 26, 48, 0.9);
-      display: none;
-      z-index: 20;
-      align-items: center;
-      justify-content: center;
-    }
-    #modalOverlay.active {
-      display: flex;
-    }
-    #modal {
-      background: #0A1A30;
-      border: 2px solid #4CC9F0;
-      padding: 20px;
-      max-width: 480px;
-      width: 90%;
-      color: #E6EDF7;
-      position: relative;
-    }
-    #modal input {
-      width: 100%;
-      padding: 6px;
-      margin-bottom: 8px;
-      border: 1px solid #4CC9F0;
-      background: #0F2A47;
-      color: #E6EDF7;
-    }
-    #modal .close {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      cursor: pointer;
-      color: #E6EDF7;
-    }
+
+    /* --------- HUD --------- */
+    #hud{position:absolute;top:0;left:0;right:0;z-index:10;background:rgba(10,26,48,.85);padding:4px 8px;font-size:12px;display:flex;gap:10px;flex-wrap:wrap}
+    #hud span{white-space:nowrap}
+
+    /* --------- Scenes --------- */
+    .scene{position:absolute;inset:0;padding-top:40px;display:none;overflow:auto}
+    .scene.show{display:block}
+
+    /* --------- Buttons / Dither --------- */
+    .btn{display:inline-block;border:2px solid var(--cyan);padding:6px 12px;margin:4px;cursor:pointer;background-size:8px 8px;image-rendering:pixelated;box-shadow:0 0 0 2px var(--bg) inset;color:var(--text)}
+    .btn:hover{border-color:var(--gold)}
+    .btn:focus{outline:1px dashed var(--gold)}
+    .center{max-width:680px;margin:0 auto;padding:16px;text-align:center}
+    /* Choices */
+    .choice{border:2px solid var(--cyan);padding:6px 8px;margin:6px 0;background-size:8px 8px;cursor:pointer}
+    .choice.correct{border-color:var(--green)}
+    .choice.incorrect{border-color:var(--danger)}
+    .npc{font-style:italic;margin-bottom:6px}
+    .brochure{border:1px solid var(--cyan);background:#0F2A47;padding:8px;margin-top:10px;font-size:13px}
+
+    /* --------- Map --------- */
+    #mapCanvas{display:block;width:100%;height:calc(100% - 64px);image-rendering:pixelated}
+    #mapTooltip{position:absolute;pointer-events:none;border:1px solid var(--cyan);padding:3px 6px;font-size:11px;background-image:url();color:var(--text);z-index:15;display:none}
+
+    /* --------- Modal (Verify) --------- */
+    #modalOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,26,48,.92);z-index:50}
+    #modalOverlay.active{display:flex}
+    #modal{width:min(480px,92%);background:var(--bg);border:2px solid var(--cyan);padding:16px;position:relative}
+    #modal input{width:100%;box-sizing:border-box;border:1px solid var(--cyan);background:#0F2A47;color:var(--text);padding:6px;margin:6px 0}
+    #modal .close{position:absolute;right:8px;top:8px;cursor:pointer}
+
+    /* --------- Legend --------- */
+    #legend{font-size:11px;opacity:.95}
   </style>
 </head>
 <body>
-  <div id="game" class="scanlines">
-    <div id="hud">
-      <span id="hudCase"></span>
-      <span id="hudStudent"></span>
-      <span id="hudClass"></span>
-      <span id="hudXP"></span>
-      <span id="hudTP"></span>
-      <span id="hudVisited"></span>
-      <span id="hudSound"></span>
-    </div>
-    <!-- Title Screen -->
-    <div id="titleScreen" class="scene">
-      <div class="center">
-        <h1>Andes &amp; Amazons</h1>
-        <h2>South America Sleuth</h2>
-        <div id="titleButtons"></div>
-        <div id="howTo" style="display:none; text-align:left; margin-top:12px;">
-          <h3>How to Play</h3>
-          <p>Travel across South America to solve cases. Click countries on the map to travel (costs 1 TP). Each first visit presents a geography question worth XP. Collect enough XP and visits to solve the case. Use the HUD to track progress. Keyboard controls: Tab/Enter to navigate, 1–4 to answer, M to toggle sound, T to open teacher verify.</p>
-        </div>
-      </div>
-    </div>
-    <!-- HQ Screen -->
-    <div id="hqScreen" class="scene">
-      <div class="center">
-        <h2>Headquarters</h2>
-        <p id="hqIntro"></p>
-        <div id="caseList"></div>
-        <div style="margin-top:12px;">
-          <label>Student Name: <input id="studentName" type="text" placeholder="Your name"></label><br>
-          <label>Class: <input id="className" type="text" placeholder="Class"></label><br>
-        </div>
-        <div id="hqButtons" style="margin-top:12px;"></div>
-      </div>
-    </div>
-    <!-- Map Screen -->
-    <div id="mapScreen" class="scene">
-      <canvas id="mapCanvas" width="600" height="500"></canvas>
-      <div style="position:absolute; bottom:10px; left:10px;">
-        <div id="mapMsg" style="margin-bottom:8px;"></div>
-        <div id="mapButtons"></div>
-        <!-- Legend overlay shows icon meanings -->
-        <div id="mapLegend" style="font-size:10px; margin-top:4px; color:#E6EDF7;">
-          Legend: <span style="color:#FFD166;">✪</span> Capital&nbsp;
-          <span style="color:#4CC9F0;">■</span> City&nbsp;
-          <span style="color:#FFD166;">✈</span> Plane&nbsp;
-          <span style="color:rgba(255,255,255,0.6);">—</span> Route
-        </div>
-      </div>
-      <!-- Tooltip for city names -->
-      <div id="mapTooltip" style="display:none; position:absolute; pointer-events:none;
-        padding:4px 6px; font-size:11px; color:#E6EDF7; border:1px solid #4CC9F0;
-        background-image:url(); z-index:15;"></div>
-    </div>
-    <!-- Country Screen -->
-    <div id="countryScreen" class="scene">
-      <div id="countryContent"></div>
-    </div>
-    <!-- Final Screen -->
-    <div id="finalScreen" class="scene">
-      <div class="center" id="finalContent"></div>
-    </div>
-    <!-- Modal for Verify -->
-    <div id="modalOverlay">
-      <div id="modal">
-        <div class="close" id="modalClose">X</div>
-        <h3>Verify Completion Code</h3>
-        <label>Name: <input id="verifyName" type="text"></label>
-        <label>Class: <input id="verifyClass" type="text"></label>
-        <label>XP: <input id="verifyXP" type="number" min="0"></label>
-        <label>Visited: <input id="verifyVisited" type="number" min="0"></label>
-        <label>Code: <input id="verifyCode" type="text"></label>
-        <div id="verifyResult" style="margin-top:8px;"></div>
-        <div class="btn" id="verifyBtn">Check</div>
+<div id="game" class="scanlines">
+  <div id="hud">
+    <span id="hudCase"></span>
+    <span id="hudStudent"></span>
+    <span id="hudClass"></span>
+    <span id="hudXP"></span>
+    <span id="hudTP"></span>
+    <span id="hudVisited"></span>
+    <span id="hudSound" style="cursor:pointer" title="Toggle sound (M)"></span>
+  </div>
+
+  <!-- Title -->
+  <div id="titleScreen" class="scene show">
+    <div class="center">
+      <h1>ANDES &amp; AMAZONS</h1>
+      <h3>South America Sleuth</h3>
+      <div id="titleButtons"></div>
+      <div id="howTo" style="display:none;text-align:left;margin-top:10px">
+        <h3>How to Play</h3>
+        <p>Pick the case, then travel city-to-city across South America to gather clues. Each new country visit asks a quick question. Correct = +2 XP, wrong = −1 XP (min 0). Travel costs 1 TP. Reach the XP and Visited goals to resolve the case.</p>
+        <p><strong>Controls:</strong> Click cities • 1–4 answer • Enter/Space select • M sound • T verify • Esc close modal.</p>
       </div>
     </div>
   </div>
-  <script>
-    /* Game data as provided */
-    const DATA = {
-      countries: [
-        {
-          id:"peru", name:"Peru", capital:"Lima",
-          regionFacts:[
-            "The Andes run north–south; many cities sit on the coastal desert or high plateaus.",
-            "Machu Picchu reflects Inca engineering in steep mountain terrain.",
-            "Quechua and Aymara languages are part of Peru’s cultural heritage."
-          ],
-          npcs:[ "Guide in Cusco", "Archivist in Lima", "Ranger in the Sacred Valley" ],
-          questions:[
-            {
-              id:"pe_q1", topic:"Physical Geography", dok:2,
-              prompt:"Which landform best explains why Peru has many high-altitude settlements?",
-              choices:["The Pampas","The Andes","The Amazon Basin","The Atacama Plateau"],
-              answer:1, explain:"Peru’s Andes create plateaus and valleys where high-altitude cities formed."
-            },
-            {
-              id:"pe_q2", topic:"Culture", dok:1,
-              prompt:"Which ancient civilization is closely associated with Peru?",
-              choices:["Aztec","Inca","Maya","Olmec"],
-              answer:1, explain:"The Inca Empire centered in the Andes with Cusco as a capital."
-            }
-          ],
-          events:[
-            { id:"pe_e1", title:"High-Altitude Trek", effect:{tp:-1},
-              text:"Thin air slows you. You conserve energy.",
-              quickCheck:{
-                prompt:"At high elevations, which is lower than at sea level?",
-                choices:["Temperature","Air pressure","Both A and B","Neither"],
-                answer:2, explain:"Both air pressure and temperature tend to be lower."
-              }
-            }
-          ],
-          lat:-12.0464, lon:-77.0428,
-          places:[
-            {id:"lima", name:"Lima", lat:-12.0464, lon:-77.0428, type:"capital"},
-            {id:"cusco", name:"Cusco", lat:-13.5320, lon:-71.9675, type:"heritage"},
-            {id:"iquitos", name:"Iquitos", lat:-3.7437, lon:-73.2516, type:"amazon"}
-          ],
-          brochure:"Journey through Peru’s diverse landscapes: wander Lima’s colonial plazas, marvel at ancient Inca ruins in Cusco and Machu Picchu, and explore the towering Andes and lush Amazon Basin. Sample ceviche and vibrant Andean crafts on your adventure."
-        },
-        {
-          id:"argentina", name:"Argentina", capital:"Buenos Aires",
-          regionFacts:[
-            "The Pampas grasslands support agriculture and cattle ranching.",
-            "Patagonia is windy and sparsely populated with steppe and mountains.",
-            "Tango music and dance emerged in Buenos Aires."
-          ],
-          npcs:[ "Port Worker at La Boca", "Gaucho Guide", "Museum Curator" ],
-          questions:[
-            {
-              id:"ar_q1", topic:"Economy & Land Use", dok:2,
-              prompt:"Which region is most tied to Argentina’s grain and cattle exports?",
-              choices:["Atacama","Pampas","Altiplano","Guiana Highlands"],
-              answer:1, explain:"The Pampas are fertile plains ideal for ranching and crops."
-            },
-            {
-              id:"ar_q2", topic:"Culture", dok:1,
-              prompt:"Which city is famous for Tango culture?",
-              choices:["Lima","Quito","Buenos Aires","La Paz"],
-              answer:2, explain:"Tango is closely associated with Buenos Aires."
-            }
-          ],
-          events:[
-            { id:"ar_e1", title:"Patagonian Crosswinds", effect:{tp:-1},
-              text:"Strong winds force a slower route."
-            }
-          ],
-          lat:-34.6037, lon:-58.3816,
-          places:[
-            {id:"buenos_aires", name:"Buenos Aires", lat:-34.6037, lon:-58.3816, type:"capital"},
-            {id:"cordoba", name:"Córdoba", lat:-31.4201, lon:-64.1888, type:"heritage"},
-            {id:"ushuaia", name:"Ushuaia", lat:-54.8019, lon:-68.3030, type:"port"}
-          ],
-          brochure:"Dance through Buenos Aires’ tango halls, ride with gauchos across the fertile Pampas, sip mate beneath Patagonian peaks, and stand at the edge of thunderous Iguaçu Falls. Argentina’s cities and landscapes pulse with music and adventure."
-        },
-        {
-          id:"brazil", name:"Brazil", capital:"Brasília",
-          regionFacts:[
-            "The Amazon Basin holds the world’s largest tropical rainforest.",
-            "Most people speak Portuguese; Rio de Janeiro is famous for Carnival.",
-            "Iguaçu Falls straddles the border region with Argentina/Paraguay."
-          ],
-          npcs:[ "Researcher on the Amazon", "Carnival Organizer", "Park Ranger at Iguaçu" ],
-          questions:[
-            {
-              id:"br_q1", topic:"Biomes", dok:1,
-              prompt:"Which biome dominates northern Brazil?",
-              choices:["Tundra","Tropical Rainforest","Mediterranean Shrub","Desert"],
-              answer:1, explain:"The Amazon rainforest spans much of northern Brazil."
-            },
-            {
-              id:"br_q2", topic:"Language", dok:1,
-              prompt:"Which language is official in Brazil?",
-              choices:["Spanish","Portuguese","French","English"],
-              answer:1, explain:"Brazil’s official language is Portuguese."
-            }
-          ],
-          events:[
-            { id:"br_e1", title:"River Flooding", effect:{tp:-1},
-              text:"Seasonal floods slow boat travel through a tributary."
-            }
-          ],
-          lat:-15.7939, lon:-47.8828,
-          places:[
-            {id:"brasilia", name:"Brasília", lat:-15.7939, lon:-47.8828, type:"capital"},
-            {id:"rio", name:"Rio de Janeiro", lat:-22.9068, lon:-43.1729, type:"port"},
-            {id:"manaus", name:"Manaus", lat:-3.1190, lon:-60.0217, type:"amazon"}
-          ],
-          brochure:"From sun-soaked Rio beaches to Brasília’s modernist skyline, Brazil dazzles: immerse yourself in Amazon rainforest biodiversity, dance through Carnival’s rhythm-filled streets, and feel the spray of Iguaçu Falls – all while enjoying samba and tropical flavors."
-        },
-        {
-          id:"chile", name:"Chile", capital:"Santiago",
-          regionFacts:[
-            "The Atacama Desert is among the driest places on Earth.",
-            "Long, narrow Chile spans many latitudes and climates.",
-            "The Andes form a towering barrier along the eastern border."
-          ],
-          npcs:[ "Astronomer in Atacama", "Harbor Captain in Valparaíso", "Park Ranger in Patagonia" ],
-          questions:[
-            {
-              id:"cl_q1", topic:"Climate", dok:2,
-              prompt:"Why is northern Chile’s Atacama so dry?",
-              choices:["Rain shadow and cold ocean currents","Monsoons","Proximity to equator","Dense forests"],
-              answer:0, explain:"The Andes rain shadow and the cold Humboldt Current reduce rainfall."
-            },
-            {
-              id:"cl_q2", topic:"Physical Geography", dok:1,
-              prompt:"Which mountain range runs along Chile’s border?",
-              choices:["Appalachians","Andes","Alps","Himalayas"],
-              answer:1, explain:"Chile lies along the Andes."
-            }
-          ],
-          events:[
-            { id:"cl_e1", title:"Humboldt Fog", effect:{tp:+1},
-              text:"Cool fog gives you a respite; you plan ahead (+1 TP)."
-            }
-          ],
-          lat:-33.4489, lon:-70.6693,
-          places:[
-            {id:"santiago", name:"Santiago", lat:-33.4489, lon:-70.6693, type:"capital"},
-            {id:"valparaiso", name:"Valparaíso", lat:-33.0472, lon:-71.6127, type:"port"},
-            {id:"punta_arenas", name:"Punta Arenas", lat:-53.1638, lon:-70.9171, type:"heritage"}
-          ],
-          brochure:"Traverse Chile’s extreme length: gaze at the starry skies of the Atacama Desert, savor seafood in colorful Valparaíso, hike glaciers in Patagonia, and toast adventure with a glass of Carménère in Santiago’s vineyards."
-        }
-        ,
-        // Additional country: Uruguay
-        {
-          id:"uruguay", name:"Uruguay", capital:"Montevideo",
-          regionFacts:[
-            "The Río de la Plata forms a broad estuary near Uruguay.",
-            "Uruguay has rolling pampas similar to Argentina's grasslands.",
-            "Montevideo hosts historic colonial architecture."
-          ],
-          npcs:[ "Farmer on the Pampas", "Harbor Master", "Historian in Montevideo" ],
-          questions:[
-            { id:"uy_q1", topic:"Physical Geography", dok:1,
-              prompt:"Which river basin influences Uruguay's coastline?",
-              choices:["Amazon","Río de la Plata","Orinoco","Magdalena"],
-              answer:1,
-              explain:"The Río de la Plata estuary forms Uruguay’s southern boundary."
-            },
-            { id:"uy_q2", topic:"Culture", dok:1,
-              prompt:"Uruguay shares cultural ties with which neighbor due to gaucho traditions?",
-              choices:["Chile","Argentina","Brazil","Peru"],
-              answer:1,
-              explain:"Gaucho culture extends across Uruguay and Argentina’s pampas."
-            }
-          ],
-          events:[],
-          lat:-34.9011, lon:-56.1645,
-          places:[
-            {id:"montevideo", name:"Montevideo", lat:-34.9011, lon:-56.1645, type:"capital"},
-            {id:"colonia", name:"Colonia del Sacramento", lat:-34.4716, lon:-57.8440, type:"heritage"}
-          ],
-          brochure:"Stroll Montevideo's historic port, unwind on sunny beaches, and discover pastoral pampas and colonial charm."
-        },
-        // Additional country: Paraguay
-        {
-          id:"paraguay", name:"Paraguay", capital:"Asunción",
-          regionFacts:[
-            "Paraguay is landlocked with major rivers Paraguay and Paraná.",
-            "Guaraní language is widely spoken and official.",
-            "The Chaco region is semi-arid and sparsely populated."
-          ],
-          npcs:[ "Market Vendor", "Riverboat Captain", "Rancher in the Chaco" ],
-          questions:[
-            { id:"py_q1", topic:"Physical Geography", dok:1,
-              prompt:"Which river is central to Paraguay's geography?",
-              choices:["Amazon","Paraguay River","Colorado River","Lena River"],
-              answer:1,
-              explain:"The Paraguay River runs through the country and joins the Paraná."
-            },
-            { id:"py_q2", topic:"Border Regions", dok:2,
-              prompt:"Paraguay shares the Iguazú Falls border with which two countries?",
-              choices:["Argentina and Brazil","Peru and Bolivia","Chile and Argentina","Ecuador and Colombia"],
-              answer:0,
-              explain:"The Iguazú River forms part of the boundary between Paraguay, Brazil and Argentina."
-            }
-          ],
-          events:[],
-          lat:-25.2637, lon:-57.5759,
-          places:[
-            {id:"asuncion", name:"Asunción", lat:-25.2637, lon:-57.5759, type:"capital"},
-            {id:"ciudad_del_este", name:"Ciudad del Este", lat:-25.5167, lon:-54.6167, type:"port"}
-          ],
-          brochure:"Step into Paraguay's bilingual culture; visit Asunción's vibrant markets and the lush Chaco; enjoy tereré and traditional music."
-        }
+
+  <!-- HQ -->
+  <div id="hqScreen" class="scene">
+    <div class="center">
+      <h2>HQ — Case Board</h2>
+      <p id="hqIntro"></p>
+      <div id="caseList"></div>
+      <div style="margin-top:10px;text-align:left">
+        <label>Student Name: <input id="studentName" type="text" placeholder="Your name"></label><br/>
+        <label>Class: <input id="className" type="text" placeholder="Class"></label>
+      </div>
+      <div id="hqButtons" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="mapScreen" class="scene">
+    <canvas id="mapCanvas" width="600" height="500"></canvas>
+    <div id="mapTooltip"></div>
+    <div style="position:absolute;left:10px;bottom:10px">
+      <div id="mapMsg" style="margin-bottom:6px"></div>
+      <div id="mapButtons"></div>
+      <div id="legend" style="margin-top:4px">
+        Legend: <span style="color:#FFD166">✪</span> Capital
+        <span style="color:#4CC9F0">■</span> City
+        <span style="color:#FFD166">✈</span> Plane
+        <span style="opacity:.7">—</span> Route
+      </div>
+    </div>
+  </div>
+
+  <!-- Country -->
+  <div id="countryScreen" class="scene">
+    <div id="countryContent" class="center"></div>
+  </div>
+
+  <!-- Final -->
+  <div id="finalScreen" class="scene">
+    <div id="finalContent" class="center"></div>
+  </div>
+
+  <!-- Verify Modal -->
+  <div id="modalOverlay">
+    <div id="modal">
+      <div id="modalClose" class="close">X</div>
+      <h3>Verify Completion Code</h3>
+      <label>Name <input id="verifyName" type="text"></label>
+      <label>Class <input id="verifyClass" type="text"></label>
+      <label>XP <input id="verifyXP" type="number" min="0"></label>
+      <label>Visited <input id="verifyVisited" type="number" min="0"></label>
+      <label>Code <input id="verifyCode" type="text"></label>
+      <div id="verifyResult" style="margin-top:8px"></div>
+      <div id="verifyBtn" class="btn">Check</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== Data: One Case, Multi-City Countries ===================== */
+const DATA = {
+  countries: [
+    {
+      id:"peru", name:"Peru", capital:"Lima", lat:-12.0464, lon:-77.0428,
+      regionFacts:[
+        "The Andes run north–south; many cities sit on coastal desert or high plateaus.",
+        "Machu Picchu shows Inca engineering in steep terrain.",
+        "Quechua and Aymara languages are part of Peru’s heritage."
       ],
-      edges: [
-        ["peru","brazil"],["peru","chile"],["peru","argentina"],
-        ["brazil","argentina"],["brazil","chile"],
-        ["argentina","chile"],
-        // additional edges for new countries
-        ["uruguay","argentina"],["uruguay","brazil"],
-        ["paraguay","argentina"],["paraguay","brazil"],["paraguay","uruguay"]
+      npcs:[ "Guide in Cusco", "Archivist in Lima", "Ranger in the Sacred Valley" ],
+      questions:[
+        { id:"pe_q1", topic:"Physical Geography", dok:2,
+          prompt:"Which landform best explains Peru’s many high-altitude settlements?",
+          choices:["The Pampas","The Andes","The Amazon Basin","The Atacama Plateau"],
+          answer:1, explain:"The Andes create plateaus and valleys where high-altitude cities formed." },
+        { id:"pe_q2", topic:"Culture", dok:1,
+          prompt:"Which ancient civilization is closely associated with Peru?",
+          choices:["Aztec","Inca","Maya","Olmec"],
+          answer:1, explain:"The Inca Empire centered in the Andes with Cusco as a capital." }
       ],
-      cases: [
-        {
-          id:"case_relic",
-          title:"The Relic of the Condor",
-          hook:"A museum courier vanished with an Inca relic. Follow the trail of clues across South America.",
-          winCondition:{ minXP:14, minVisited:6, finalQuestion:{
-            prompt:"Where is the relic most likely hidden?",
-            choices:["In a port warehouse in Buenos Aires","At a riverside market in Manaus","In a mountain shrine near Cusco","Inside a lighthouse in Valparaíso"],
-            answer:2,
-            explain:"Clues point to high-altitude ritual sites along Inca routes."
-          }}
-        },
-        {
-          id:"case_iguacu",
-          title:"Mystery at Iguaçu Falls",
-          hook:"Strange shipments pass through border towns. Track the route and reveal the mastermind.",
-          winCondition:{ minXP:14, minVisited:6, finalQuestion:{
-            prompt:"Which border region fits the clues?",
-            choices:["Iguaçu (Brazil/Argentina)","Altiplano (Peru/Bolivia)","Atacama (Chile)","Titicaca (Peru/Bolivia)"],
-            answer:0,
-            explain:"Clues referenced triple-border trade and a massive waterfall complex."
-          }}
-        }
-      ]
+      events:[
+        { id:"pe_e1", title:"High-Altitude Trek", effect:{tp:-1}, text:"Thin air slows you.",
+          quickCheck:{ prompt:"At high elevations, which is lower than at sea level?",
+            choices:["Temperature","Air pressure","Both A and B","Neither"], answer:2,
+            explain:"Both air pressure and temperature tend to be lower." } }
+      ],
+      places:[
+        {id:"lima", name:"Lima", lat:-12.0464, lon:-77.0428, type:"capital"},
+        {id:"cusco", name:"Cusco", lat:-13.5320, lon:-71.9675, type:"heritage"},
+        {id:"iquitos", name:"Iquitos", lat:-3.7437, lon:-73.2516, type:"amazon"}
+      ],
+      brochure:"Wander Lima’s plazas, explore Inca sites near Cusco, and journey from high Andes to the Amazon Basin."
+    },
+    {
+      id:"argentina", name:"Argentina", capital:"Buenos Aires", lat:-34.6037, lon:-58.3816,
+      regionFacts:[
+        "The Pampas support grain and cattle ranching.",
+        "Patagonia is windy and sparsely populated.",
+        "Tango music emerged in Buenos Aires."
+      ],
+      npcs:[ "Port Worker at La Boca", "Gaucho Guide", "Museum Curator" ],
+      questions:[
+        { id:"ar_q1", topic:"Economy & Land Use", dok:2,
+          prompt:"Which region is tied to Argentina’s grain and cattle exports?",
+          choices:["Atacama","Pampas","Altiplano","Guiana Highlands"],
+          answer:1, explain:"The Pampas are fertile plains ideal for ranching and crops." },
+        { id:"ar_q2", topic:"Culture", dok:1,
+          prompt:"Which city is famous for Tango culture?",
+          choices:["Lima","Quito","Buenos Aires","La Paz"],
+          answer:2, explain:"Tango is closely associated with Buenos Aires." }
+      ],
+      events:[ { id:"ar_e1", title:"Patagonian Crosswinds", effect:{tp:-1}, text:"Strong winds force a slower route." } ],
+      places:[
+        {id:"buenos_aires", name:"Buenos Aires", lat:-34.6037, lon:-58.3816, type:"capital"},
+        {id:"cordoba", name:"Córdoba", lat:-31.4201, lon:-64.1888, type:"heritage"},
+        {id:"ushuaia", name:"Ushuaia", lat:-54.8019, lon:-68.3030, type:"port"}
+      ],
+      brochure:"Dance through Buenos Aires, ride with gauchos on the Pampas, and feel Patagonia’s wild winds."
+    },
+    {
+      id:"brazil", name:"Brazil", capital:"Brasília", lat:-15.7939, lon:-47.8828,
+      regionFacts:[
+        "The Amazon Basin holds the world’s largest tropical rainforest.",
+        "Portuguese is the official language; Rio hosts Carnival.",
+        "Iguaçu Falls sits on a busy border region."
+      ],
+      npcs:[ "Researcher on the Amazon", "Carnival Organizer", "Park Ranger at Iguaçu" ],
+      questions:[
+        { id:"br_q1", topic:"Biomes", dok:1,
+          prompt:"Which biome dominates northern Brazil?",
+          choices:["Tundra","Tropical Rainforest","Mediterranean Shrub","Desert"],
+          answer:1, explain:"The Amazon rainforest spans much of northern Brazil." },
+        { id:"br_q2", topic:"Language", dok:1,
+          prompt:"Which language is official in Brazil?",
+          choices:["Spanish","Portuguese","French","English"],
+          answer:1, explain:"Brazil’s official language is Portuguese." }
+      ],
+      events:[ { id:"br_e1", title:"River Flooding", effect:{tp:-1}, text:"Seasonal floods slow boat travel." } ],
+      places:[
+        {id:"brasilia", name:"Brasília", lat:-15.7939, lon:-47.8828, type:"capital"},
+        {id:"rio", name:"Rio de Janeiro", lat:-22.9068, lon:-43.1729, type:"port"},
+        {id:"manaus", name:"Manaus", lat:-3.1190, lon:-60.0217, type:"amazon"}
+      ],
+      brochure:"From Rio’s beaches to Brasília’s modernist core and the vast Amazon—Brazil bursts with life."
+    },
+    {
+      id:"chile", name:"Chile", capital:"Santiago", lat:-33.4489, lon:-70.6693,
+      regionFacts:[
+        "The Atacama Desert is among the driest places on Earth.",
+        "Chile spans many latitudes and climates.",
+        "The Andes form a towering eastern barrier."
+      ],
+      npcs:[ "Astronomer in Atacama", "Harbor Captain in Valparaíso", "Park Ranger in Patagonia" ],
+      questions:[
+        { id:"cl_q1", topic:"Climate", dok:2,
+          prompt:"Why is northern Chile’s Atacama so dry?",
+          choices:["Rain shadow + cold currents","Monsoons","Proximity to equator","Dense forests"],
+          answer:0, explain:"The Andes rain shadow and the cold Humboldt Current reduce rainfall." },
+        { id:"cl_q2", topic:"Physical Geography", dok:1,
+          prompt:"Which mountain range runs along Chile’s border?",
+          choices:["Appalachians","Andes","Alps","Himalayas"],
+          answer:1, explain:"Chile lies along the Andes." }
+      ],
+      events:[ { id:"cl_e1", title:"Humboldt Fog", effect:{tp:+1}, text:"Cool fog lets you plan ahead (+1 TP)." } ],
+      places:[
+        {id:"santiago", name:"Santiago", lat:-33.4489, lon:-70.6693, type:"capital"},
+        {id:"valparaiso", name:"Valparaíso", lat:-33.0472, lon:-71.6127, type:"port"},
+        {id:"punta_arenas", name:"Punta Arenas", lat:-53.1638, lon:-70.9171, type:"heritage"}
+      ],
+      brochure:"Stargaze in Atacama, feast in Valparaíso, and trek Patagonian wilds from Santiago’s hub."
+    },
+    {
+      id:"uruguay", name:"Uruguay", capital:"Montevideo", lat:-34.9011, lon:-56.1645,
+      regionFacts:[
+        "The Río de la Plata estuary shapes Uruguay’s coast.",
+        "Rolling pampas cover much of the interior.",
+        "Montevideo preserves colonial architecture."
+      ],
+      npcs:[ "Farmer on the Pampas", "Harbor Master", "Historian in Montevideo" ],
+      questions:[
+        { id:"uy_q1", topic:"Physical Geography", dok:1,
+          prompt:"Which estuary influences Uruguay’s coast?",
+          choices:["Amazon","Río de la Plata","Orinoco","Magdalena"],
+          answer:1, explain:"The Río de la Plata forms Uruguay’s southern boundary." },
+        { id:"uy_q2", topic:"Culture", dok:1,
+          prompt:"Uruguay shares gaucho traditions with which neighbor?",
+          choices:["Chile","Argentina","Brazil","Peru"],
+          answer:1, explain:"Gaucho culture spans Uruguay and Argentina." }
+      ],
+      events:[],
+      places:[
+        {id:"montevideo", name:"Montevideo", lat:-34.9011, lon:-56.1645, type:"capital"},
+        {id:"colonia", name:"Colonia del Sacramento", lat:-34.4716, lon:-57.8440, type:"heritage"}
+      ],
+      brochure:"Stroll Montevideo’s rambla, ferry across the Plata, and explore colonial Colonia."
+    },
+    {
+      id:"paraguay", name:"Paraguay", capital:"Asunción", lat:-25.2637, lon:-57.5759,
+      regionFacts:[
+        "Paraguay is landlocked with the Paraguay and Paraná rivers.",
+        "Guaraní is widely spoken and official.",
+        "The Chaco region is dry and sparsely populated."
+      ],
+      npcs:[ "Market Vendor", "Riverboat Captain", "Rancher in the Chaco" ],
+      questions:[
+        { id:"py_q1", topic:"Physical Geography", dok:1,
+          prompt:"Which river is central to Paraguay’s geography?",
+          choices:["Amazon","Paraguay River","Colorado","Lena"],
+          answer:1, explain:"The Paraguay River runs through the country and joins the Paraná." },
+        { id:"py_q2", topic:"Border Regions", dok:2,
+          prompt:"Iguazú border region involves which two neighbors?",
+          choices:["Argentina & Brazil","Peru & Bolivia","Chile & Argentina","Ecuador & Colombia"],
+          answer:0, explain:"Iguazú lies between Paraguay, Brazil, and Argentina." }
+      ],
+      events:[],
+      places:[
+        {id:"asuncion", name:"Asunción", lat:-25.2637, lon:-57.5759, type:"capital"},
+        {id:"ciudad_del_este", name:"Ciudad del Este", lat:-25.5167, lon:-54.6167, type:"port"}
+      ],
+      brochure:"Sip tereré, browse river markets, and explore the bilingual heart of South America."
+    }
+  ],
+  // Country-level edges for allowed travel
+  edges: [
+    ["peru","brazil"],["peru","chile"],["peru","argentina"],
+    ["brazil","argentina"],["brazil","chile"],
+    ["argentina","chile"],
+    ["uruguay","argentina"],["uruguay","brazil"],
+    ["paraguay","argentina"],["paraguay","brazil"],["paraguay","uruguay"]
+  ],
+  // ONE story (simplified thresholds for classroom pacing)
+  cases: [
+    { id:"case_relic",
+      title:"The Relic of the Condor",
+      hook:"A courier vanished with an Inca relic. Follow clues across South America.",
+      winCondition:{ minXP:8, minVisited:4, finalQuestion:{
+        prompt:"Where is the relic most likely hidden?",
+        choices:["Port warehouse in Buenos Aires","Riverside market in Manaus","Mountain shrine near Cusco","Lighthouse in Valparaíso"],
+        answer:2,
+        explain:"Clues point to high-altitude ritual sites along Inca routes."
+      }}
+    }
+  ]
+};
+
+/* ===================== Verify Code ===================== */
+const SECRET = "SC7Geo2025-SA";
+function fnv1aHex(str){
+  let h = 0x811c9dc5>>>0;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24)))>>>0;
+  }
+  return ("00000000"+h.toString(16)).slice(-8).toUpperCase();
+}
+function base36(n,pad=2){ return Math.max(0,n|0).toString(36).toUpperCase().padStart(pad,"0"); }
+function makeCode(name, cls, xp, visited){
+  const payload = `${SECRET}|${name}|${cls}|${xp}|${visited}|AndesAmazons`;
+  const sig = fnv1aHex(payload).slice(0,6);
+  return `SA-${base36(xp)}${base36(visited)}-${sig}`;
+}
+
+/* ===================== State & Save ===================== */
+const SAVE_KEY = "AndesAmazonsSave";
+let state = {
+  xp:0, tp:8, visited:[], answered:[], eventsSeen:[],
+  currentCase:null, finalAnswered:false,
+  studentName:"", className:"", sound:true,
+  locationCountry:null, lastPlaceId:null,
+  isFlying:false, flightStart:0, flightDuration:0,
+  planeX:0, planeY:0, flightFromX:0, flightFromY:0, flightToX:0, flightToY:0,
+  flightDestCountry:null, flightDestPlace:null
+};
+function saveState(){ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+function loadState(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"{}"); Object.assign(state,s);}catch{} }
+
+/* ===================== UI Helpers ===================== */
+let ditherDataUrl="";
+function generateDither(){
+  // crisp checkerboard for buttons/tooltips
+  const c=document.createElement('canvas'); c.width=8; c.height=8;
+  const x=c.getContext('2d'); const img=x.createImageData(8,8);
+  for(let y=0;y<8;y++)for(let i=0;i<8;i++){
+    const idx=(y*8+i)*4; const v=((i+y)&1)?0x0A:0x1A;
+    img.data[idx]=10+v; img.data[idx+1]=26+v; img.data[idx+2]=48+v; img.data[idx+3]=255;
+  }
+  x.putImageData(img,0,0); ditherDataUrl=c.toDataURL();
+}
+function btn(label, onClick){
+  const b=document.createElement('div'); b.className='btn'; b.textContent=label;
+  b.style.backgroundImage=`url(${ditherDataUrl})`; b.tabIndex=0;
+  b.onclick=()=>{ onClick(); beep(440,0.05); };
+  b.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onClick(); beep(440,0.05);} };
+  return b;
+}
+const hud = {
+  case:()=>document.getElementById('hudCase'),
+  student:()=>document.getElementById('hudStudent'),
+  cls:()=>document.getElementById('hudClass'),
+  xp:()=>document.getElementById('hudXP'),
+  tp:()=>document.getElementById('hudTP'),
+  visited:()=>document.getElementById('hudVisited'),
+  sound:()=>document.getElementById('hudSound')
+};
+function updateHUD(){
+  hud.case().textContent = state.currentCase ? `Case: ${getCase(state.currentCase).title}` : '';
+  hud.student().textContent = state.studentName?`Student: ${state.studentName}`:'';
+  hud.cls().textContent = state.className?`Class: ${state.className}`:'';
+  hud.xp().textContent = `XP⭐ ${state.xp}`;
+  hud.tp().textContent = `TP🚶 ${state.tp}`;
+  hud.visited().textContent = `Visited📍 ${state.visited.length}/${DATA.countries.length}`;
+  hud.sound().textContent = state.sound?'🔊':'🔇';
+}
+
+/* ===================== Audio ===================== */
+let audioCtx;
+function beep(freq=440, dur=0.1){
+  if(!state.sound) return;
+  audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type='square'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.1, audioCtx.currentTime); o.start(); o.stop(audioCtx.currentTime+dur);
+}
+
+/* ===================== Scenes ===================== */
+function showScene(id){
+  document.querySelectorAll('.scene').forEach(s=>s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+  updateHUD();
+}
+
+/* ===================== Data helpers ===================== */
+function getCountry(id){ return DATA.countries.find(c=>c.id===id); }
+function getCase(id){ return DATA.cases.find(c=>c.id===id); }
+
+/* ===================== Title & HQ ===================== */
+function setupTitle(){
+  const wrap=document.getElementById('titleButtons'); wrap.innerHTML='';
+  if(state.currentCase && !state.finalAnswered){
+    wrap.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
+  }else{
+    wrap.appendChild(btn('Start', ()=>{ showScene('hqScreen'); setupHQ(); }));
+  }
+  wrap.appendChild(btn('New Game', ()=>{ localStorage.removeItem(SAVE_KEY); state = {...state, xp:0,tp:8,visited:[],answered:[],eventsSeen:[],currentCase:null,finalAnswered:false,locationCountry:null,lastPlaceId:null}; saveState(); setupTitle();}));
+  wrap.appendChild(btn('How to Play', ()=>{ const el=document.getElementById('howTo'); el.style.display = el.style.display==='none'?'block':'none'; }));
+  wrap.appendChild(btn(state.sound?'Sound Off':'Sound On', ()=>{ state.sound=!state.sound; saveState(); setupTitle(); }));
+}
+function setupHQ(){
+  document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
+  const list=document.getElementById('caseList'); list.innerHTML='';
+  // Only one case
+  const c=DATA.cases[0];
+  const box=document.createElement('div'); box.style.textAlign='left';
+  box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
+  box.appendChild(btn('Play', ()=>{
+    state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
+    state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; saveState();
+    showScene('mapScreen'); enterMap();
+  }));
+  list.appendChild(box);
+
+  document.getElementById('studentName').value=state.studentName;
+  document.getElementById('className').value=state.className;
+
+  const hqBtns=document.getElementById('hqButtons'); hqBtns.innerHTML='';
+  hqBtns.appendChild(btn('Save & Continue', ()=>{
+    state.studentName=document.getElementById('studentName').value.trim();
+    state.className=document.getElementById('className').value.trim();
+    saveState(); beep(560,.05);
+  }));
+  hqBtns.appendChild(btn('Back to Title', ()=>{ showScene('titleScreen'); setupTitle(); }));
+}
+
+/* ===================== Map & Projection ===================== */
+const bounds = { latMin:-56, latMax:13, lonMin:-82, lonMax:-34 };
+let mapCanvas, mapCtx, baseMapImage;
+let markers=[]; // {countryId, placeId, name, type, lat, lon, _x, _y}
+let hovered=null;
+let mapRAF=null;
+function toXY(lat, lon){
+  const x = (lon - bounds.lonMin) / (bounds.lonMax - bounds.lonMin) * mapCanvas.width;
+  const y = (bounds.latMax - lat) / (bounds.latMax - bounds.latMin) * mapCanvas.height;
+  return {x,y};
+}
+function buildMarkers(){
+  markers=[];
+  DATA.countries.forEach(c=>{
+    (c.places && c.places.length?c.places:[{id:c.id+'_capital',name:c.capital,lat:c.lat,lon:c.lon,type:'capital'}]).forEach(p=>{
+      markers.push({countryId:c.id, placeId:p.id, name:p.name, type:p.type, lat:p.lat, lon:p.lon, _x:0,_y:0});
+    });
+  });
+}
+function generateTopoBitmap(){
+  const w=320, h=340, c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d');
+  x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--ocean').trim()||'#0D2C54';
+  x.fillRect(0,0,w,h);
+  const outline=[
+    {lat:12,lon:-60},{lat:5,lon:-59},{lat:5,lon:-34},{lat:-15,lon:-35},
+    {lat:-34,lon:-53},{lat:-38,lon:-58},{lat:-55,lon:-70},{lat:-40,lon:-72},
+    {lat:-10,lon:-72},{lat:2,lon:-80}
+  ];
+  const to=(lat,lon)=>({ x:(lon-bounds.lonMin)/(bounds.lonMax-bounds.lonMin)*w, y:(bounds.latMax-lat)/(bounds.latMax-bounds.latMin)*h });
+  x.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--land').trim()||'#2E8540';
+  x.beginPath(); outline.forEach((pt,i)=>{ const p=to(pt.lat,pt.lon); if(i===0)x.moveTo(p.x,p.y); else x.lineTo(p.x,p.y); }); x.closePath(); x.fill();
+  // Diagonal relief
+  const img=x.getImageData(0,0,w,h);
+  for(let y=0;y<h;y++)for(let i=0;i<w;i++){
+    const k=(y*w+i)*4, fx=i/w, fy=y/h, f=Math.max(0,.6-(fx+fy)*.5);
+    img.data[k]=Math.min(255,img.data[k]+f*60); img.data[k+1]=Math.min(255,img.data[k+1]+f*60); img.data[k+2]=Math.min(255,img.data[k+2]+f*30);
+  }
+  x.putImageData(img,0,0); baseMapImage=c;
+}
+function drawCityIcon(ctx, x, y, kind, {visited,current}={}){
+  // colors
+  let col = kind==='capital'?'#FFD166':kind==='heritage'?'#4CC9F0':kind==='port'?'#38B000':kind==='amazon'?'#8AC926':'#4CC9F0';
+  if(visited) col='#38B000'; if(current) col='#FFD166';
+  const px=x-8, py=y-8; ctx.clearRect(px,py,16,16); ctx.fillStyle=col; ctx.strokeStyle='#0A1A30';
+  if(kind==='capital'){ ctx.fillRect(px+6,py+0,4,4);ctx.fillRect(px+6,py+12,4,4);ctx.fillRect(px+0,py+6,4,4);ctx.fillRect(px+12,py+6,4,4);ctx.fillRect(px+6,py+6,4,4);}
+  else if(kind==='heritage'){ ctx.fillRect(px+4,py+8,8,4);ctx.fillRect(px+2,py+4,12,4);ctx.fillRect(px+0,py+0,16,4);}
+  else if(kind==='port'){ ctx.fillRect(px+6,py+0,4,12);ctx.fillRect(px+2,py+8,12,4);ctx.fillRect(px+6,py+12,4,4);}
+  else if(kind==='amazon'){ ctx.fillRect(px+6,py+8,4,8);ctx.fillRect(px+4,py+4,8,4);ctx.fillRect(px+2,py+0,12,4);}
+  else { ctx.beginPath();ctx.moveTo(x,y-6);ctx.lineTo(x+6,y);ctx.lineTo(x,y+6);ctx.lineTo(x-6,y);ctx.closePath();ctx.fill(); }
+  if(current){ ctx.lineWidth=1; ctx.strokeRect(px+.5,py+.5,15,15); }
+}
+function drawPlane(ctx,x,y,frame=0){
+  const bw=14,bh=4;
+  ctx.fillStyle='#FFD166'; ctx.strokeStyle='#0A1A30'; ctx.lineWidth=1;
+  ctx.fillRect(x-bw/2,y-bh/2,bw,bh);
+  ctx.fillRect(x-bw/2-2,y-1,bw+4,2);
+  ctx.fillRect(x-bw/2+2,y-bh/2-3,3,3);
+  ctx.beginPath(); ctx.moveTo(x+bw/2,y-bh/2); ctx.lineTo(x+bw/2+3,y); ctx.lineTo(x+bw/2,y+bh/2); ctx.closePath(); ctx.fill();
+  const px=x+bw/2+5, py=y; ctx.strokeStyle='#E6EDF7'; ctx.beginPath();
+  if(frame%3===0){ ctx.moveTo(px-2,py);ctx.lineTo(px+2,py);ctx.moveTo(px,py-2);ctx.lineTo(px,py+2); }
+  else if(frame%3===1){ ctx.moveTo(px-2,py-2);ctx.lineTo(px+2,py+2);ctx.moveTo(px-2,py+2);ctx.lineTo(px+2,py-2); }
+  else { ctx.moveTo(px,py-3);ctx.lineTo(px,py+3); }
+  ctx.stroke(); ctx.strokeStyle='#0A1A30'; ctx.strokeRect(x-bw/2,y-bh/2,bw,bh);
+}
+function drawAnimatedPlane(){
+  if(!mapCtx) return;
+  let x=state.planeX, y=state.planeY, frame=0, bob=0;
+  if(state.isFlying){
+    const now=performance.now(); const t=Math.min(1,(now-state.flightStart)/state.flightDuration);
+    x = state.flightFromX + (state.flightToX - state.flightFromX)*t;
+    y = state.flightFromY + (state.flightToY - state.flightFromY)*t;
+    state.planeX=x; state.planeY=y;
+    frame = Math.floor(((now-state.flightStart)/80)%3);
+    if(t>=1){ finishFlight(); }
+  }else{
+    frame = Math.floor((Date.now()/120)%3);
+    bob = Math.sin(Date.now()/260)*2;
+  }
+  drawPlane(mapCtx, x, y+bob, frame);
+}
+
+function renderMap(){
+  // size
+  const cont=document.getElementById('mapScreen');
+  const cw=cont.clientWidth||window.innerWidth, ch=cont.clientHeight||window.innerHeight-40;
+  mapCanvas.width=cw; mapCanvas.height=ch; mapCtx.imageSmoothingEnabled=false;
+
+  // base
+  mapCtx.clearRect(0,0,cw,ch);
+  mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch);
+
+  // edges (country centroids)
+  mapCtx.strokeStyle='rgba(255,255,255,.18)'; mapCtx.lineWidth=1;
+  DATA.edges.forEach(([a,b])=>{
+    const A=getCountry(a), B=getCountry(b);
+    const pA=toXY(A.lat,A.lon), pB=toXY(B.lat,B.lon);
+    mapCtx.beginPath(); mapCtx.moveTo(pA.x,pA.y); mapCtx.lineTo(pB.x,pB.y); mapCtx.stroke();
+  });
+
+  // markers
+  markers.forEach(m=>{
+    const p=toXY(m.lat,m.lon); m._x=p.x; m._y=p.y;
+    const visited = state.visited.includes(m.countryId);
+    const current = (state.lastPlaceId===m.placeId);
+    const hover = (hovered && hovered.placeId===m.placeId);
+    drawCityIcon(mapCtx,m._x,m._y,m.type,{visited,current:current||hover});
+  });
+
+  // set plane position if we have a current place and not flying
+  if(!state.isFlying && state.lastPlaceId){
+    const mk=markers.find(mm=>mm.placeId===state.lastPlaceId);
+    if(mk){ state.planeX=mk._x; state.planeY=mk._y; }
+  }
+  drawAnimatedPlane();
+
+  // message & buttons
+  const msg=document.getElementById('mapMsg');
+  if(state.locationCountry && state.lastPlaceId){
+    const c=getCountry(state.locationCountry);
+    const mk=markers.find(m=>m.placeId===state.lastPlaceId);
+    msg.textContent=`Current: ${c.name} • ${mk?mk.name:""}`;
+  }else msg.textContent='Choose a starting city';
+
+  const btns=document.getElementById('mapButtons'); btns.innerHTML='';
+  const cs = state.currentCase && getCase(state.currentCase);
+  if(cs && !state.finalAnswered && state.xp>=cs.winCondition.minXP && state.visited.length>=cs.winCondition.minVisited){
+    btns.appendChild(btn('Resolve Case', ()=>showFinal()));
+  }
+  btns.appendChild(btn('HQ', ()=>{ showScene('hqScreen'); setupHQ(); }));
+}
+
+function enterMap(){
+  buildMarkers();
+  hovered=null;
+  if(mapRAF) cancelAnimationFrame(mapRAF);
+  const loop=()=>{ renderMap(); mapRAF=requestAnimationFrame(loop); };
+  loop();
+}
+
+/* ===================== Map Interaction ===================== */
+function onMapMove(e){
+  const rect=mapCanvas.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  let nearest=null, d2min=1e12;
+  markers.forEach(m=>{ const dx=x-m._x, dy=y-m._y, d2=dx*dx+dy*dy; if(d2<d2min){ d2min=d2; nearest=m; } });
+  const thr = 18 * (mapCanvas.width/400);
+  if(nearest && d2min<thr*thr){
+    hovered=nearest;
+    const tip=document.getElementById('mapTooltip');
+    tip.textContent=`${nearest.name} • ${getCountry(nearest.countryId).name}`;
+    tip.style.left=(x+12)+'px'; tip.style.top=(y+12)+'px';
+    tip.style.backgroundImage=`url(${ditherDataUrl})`;
+    tip.style.display='block';
+  }else{
+    hovered=null; document.getElementById('mapTooltip').style.display='none';
+  }
+}
+function onMapOut(){ hovered=null; document.getElementById('mapTooltip').style.display='none'; }
+function onMapClick(e){
+  if(state.isFlying) return;
+  const rect=mapCanvas.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  let target=null, d2min=1e12;
+  markers.forEach(m=>{ const dx=x-m._x, dy=y-m._y, d2=dx*dx+dy*dy; if(d2<d2min){ d2min=d2; target=m; } });
+  const thr = 18 * (mapCanvas.width/400);
+  if(target && d2min<thr*thr){ startFlight(target); }
+}
+function startFlight(target){
+  // cost if already somewhere & check adjacency
+  if(state.locationCountry){
+    const ok = DATA.edges.some(([a,b])=>(a===state.locationCountry&&b===target.countryId)||(b===state.locationCountry&&a===target.countryId));
+    if(!ok){ alert('You cannot travel directly there.'); return; }
+    if(state.tp<=0){ alert('No Travel Points remaining.'); return; }
+    state.tp -= 1;
+  }
+  // flight setup
+  const from = (state.locationCountry && state.lastPlaceId) ? markers.find(m=>m.placeId===state.lastPlaceId) : target;
+  state.isFlying=true;
+  state.flightStart=performance.now();
+  state.flightDuration=750+Math.random()*200;
+  state.flightFromX=from._x; state.flightFromY=from._y;
+  state.flightToX=target._x; state.flightToY=target._y;
+  state.flightDestCountry=target.countryId; state.flightDestPlace=target.placeId;
+  // record visited
+  if(!state.visited.includes(target.countryId)) state.visited.push(target.countryId);
+  saveState();
+}
+function finishFlight(){
+  state.isFlying=false;
+  state.locationCountry=state.flightDestCountry;
+  state.lastPlaceId=state.flightDestPlace;
+  state.planeX=state.flightToX; state.planeY=state.flightToY;
+  saveState();
+  // Show the country then possibly append an event (so it doesn't get wiped)
+  showCountry(state.locationCountry);
+  if(Math.random()<0.4) maybeEvent(state.locationCountry);
+}
+
+/* ===================== Country Screen ===================== */
+function postcard(place,country){
+  const w=160,h=100, c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d');
+  const pal={
+    capital:['#112240','#3A5BA0'],
+    heritage:['#2B2147','#6B4F92'],
+    port:['#0C2E4F','#1E5F99'],
+    amazon:['#123D2A','#2E7D32'],
+    other:['#0D2C54','#4CC9F0']
+  }[place.type]||['#0D2C54','#4CC9F0'];
+  const g=x.createLinearGradient(0,0,0,h); g.addColorStop(0,pal[0]); g.addColorStop(1,pal[1]); x.fillStyle=g; x.fillRect(0,0,w,h);
+  x.fillStyle='rgba(10,26,48,.85)';
+  const B=(ax,ty,wid,ht)=>x.fillRect(ax,ty,wid,ht);
+  const M=(ax,by,wid,ht)=>{ x.beginPath(); x.moveTo(ax,by); x.lineTo(ax+wid/2,by-ht); x.lineTo(ax+wid,by); x.closePath(); x.fill(); };
+  const T=(ax,by)=>{ x.fillRect(ax-2,by,4,10); x.beginPath(); x.arc(ax,by-2,6,0,Math.PI*2); x.fill(); };
+  if(place.type==='heritage'){ M(20,h-20,42,28); M(58,h-16,48,22); M(102,h-18,36,20);}
+  else if(place.type==='port'){ B(18,h-22,12,22); B(36,h-28,10,28); B(52,h-18,10,18); B(70,h-24,12,24); B(88,h-16,12,16);}
+  else if(place.type==='amazon'){ x.fillRect(0,h-24,w,8); T(28,h-36); T(66,h-34); T(110,h-39);}
+  else { B(20,h-20,14,20); B(40,h-26,10,26); B(58,h-16,8,16); B(74,h-22,12,22); B(92,h-14,12,14); }
+  // stamp
+  x.fillStyle='#0A1A30'; x.fillRect(w-42,6,36,22); x.strokeStyle='#4CC9F0'; x.strokeRect(w-42,6,36,22);
+  x.fillStyle='#E6EDF7'; x.font='bold 10px monospace'; x.fillText(country.name.slice(0,2).toUpperCase(),w-34,20);
+  return c;
+}
+function showCountry(countryId){
+  const country=getCountry(countryId);
+  const el=document.getElementById('countryContent'); el.innerHTML='';
+  const mk=markers.find(m=>m.placeId===state.lastPlaceId) || null;
+  if(mk) el.appendChild(postcard(mk,country));
+  const h2=document.createElement('h2'); h2.textContent = mk ? `${country.name} • ${mk.name}` : country.name; el.appendChild(h2);
+  const npc=document.createElement('div'); npc.className='npc'; npc.textContent=`${country.npcs[Math.floor(Math.random()*country.npcs.length)]}:`; el.appendChild(npc);
+  const remaining = country.questions.filter(q=>!state.answered.includes(q.id));
+  if(remaining.length){
+    const q=remaining[Math.floor(Math.random()*remaining.length)];
+    const p=document.createElement('p'); p.textContent=q.prompt; el.appendChild(p);
+    q.choices.forEach((t,i)=>{
+      const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
+      c.onclick=()=>answer(q,i,c); c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; if(idx>=0&&idx<q.choices.length) answer(q,idx,c);} } };
+      el.appendChild(c);
+    });
+  }else{
+    const fact=country.regionFacts[Math.floor(Math.random()*country.regionFacts.length)];
+    const p=document.createElement('p'); p.textContent=fact; el.appendChild(p);
+    el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
+  }
+  if(country.brochure){ const br=document.createElement('div'); br.className='brochure'; br.textContent=country.brochure; el.appendChild(br); }
+  showScene('countryScreen');
+}
+function answer(q, idx, elSel){
+  if(elSel.dataset.done) return; elSel.dataset.done='y';
+  const correct = idx===q.answer;
+  const parent=elSel.parentNode;
+  if(correct){ state.xp+=2; elSel.classList.add('correct'); beep(880,.15); } else { state.xp=Math.max(0,state.xp-1); elSel.classList.add('incorrect'); beep(220,.15); }
+  state.answered.push(q.id); saveState();
+  parent.querySelectorAll('.choice').forEach(c=>c.style.pointerEvents='none');
+  setTimeout(()=>{
+    const ex=document.createElement('p'); ex.style.fontStyle='italic'; ex.textContent=q.explain; parent.appendChild(ex);
+    parent.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
+  },250);
+}
+
+/* ===================== Events ===================== */
+function maybeEvent(countryId){
+  const country=getCountry(countryId);
+  if(!country.events || !country.events.length) return;
+  const pool = country.events.filter(e=>!state.eventsSeen.includes(e.id));
+  const evt = (pool.length?pool:country.events)[Math.floor(Math.random()*country.events.length)];
+  state.eventsSeen.push(evt.id);
+  if(evt.effect && typeof evt.effect.tp==='number'){ state.tp=Math.max(0,state.tp+evt.effect.tp); }
+  saveState();
+
+  const content=document.getElementById('countryContent');
+  const block=document.createElement('div'); block.style.margin='8px 0';
+  block.innerHTML=`<strong>Event:</strong> ${evt.title}<br>${evt.text}`;
+  content.appendChild(block);
+
+  if(evt.quickCheck){
+    const qc=evt.quickCheck;
+    const p=document.createElement('p'); p.textContent=qc.prompt; content.appendChild(p);
+    qc.choices.forEach((t,i)=>{
+      const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
+      c.onclick=()=>handleQC(qc,i,c); c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; if(idx>=0&&idx<qc.choices.length) handleQC(qc,idx,c);} } };
+      content.appendChild(c);
+    });
+    function handleQC(q, idx, ch){
+      if(ch.dataset.done) return; ch.dataset.done='y';
+      const ok=idx===q.answer;
+      if(ok){ state.xp+=2; ch.classList.add('correct'); beep(880,.15); } else { state.xp=Math.max(0,state.xp-1); ch.classList.add('incorrect'); beep(220,.15); }
+      saveState();
+      setTimeout(()=>{
+        const ex=document.createElement('p'); ex.style.fontStyle='italic'; ex.textContent=q.explain; content.appendChild(ex);
+        content.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
+      },250);
+      content.querySelectorAll('.choice').forEach(cc=>cc.style.pointerEvents='none');
+    }
+  }else{
+    content.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
+  }
+}
+
+/* ===================== Case Resolution ===================== */
+function showFinal(){
+  const cs=getCase(state.currentCase), fq=cs.winCondition.finalQuestion;
+  const el=document.getElementById('finalContent'); el.innerHTML='';
+  el.appendChild(Object.assign(document.createElement('h2'),{textContent:'Case Resolution'}));
+  el.appendChild(Object.assign(document.createElement('p'),{textContent:fq.prompt}));
+  fq.choices.forEach((t,i)=>{
+    const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
+    c.onclick=()=>{
+      if(c.dataset.done) return; c.dataset.done='y';
+      const ok=i===fq.answer;
+      if(ok){ state.xp+=2; c.classList.add('correct'); beep(880,.2);} else { state.xp=Math.max(0,state.xp-2); c.classList.add('incorrect'); beep(150,.2);}
+      saveState();
+      setTimeout(()=>{
+        el.appendChild(Object.assign(document.createElement('p'),{innerHTML:(ok?'You solved the case! ':'Not quite, but case closed.')+' '+fq.explain}));
+        state.finalAnswered=true; saveState();
+        const code=makeCode(state.studentName,state.className,state.xp,state.visited.length);
+        const cp=document.createElement('p'); cp.innerHTML=`Completion Code: <strong>${code}</strong>`; el.appendChild(cp);
+        el.appendChild(btn('Back to HQ', ()=>{ state.currentCase=null; saveState(); setupHQ(); showScene('hqScreen'); }));
+        el.appendChild(btn('Verify Code', ()=>openVerify()));
+      },250);
     };
+    c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; const all=el.querySelectorAll('.choice'); if(idx>=0&&idx<all.length) all[idx].click(); } } };
+    el.appendChild(c);
+  });
+  showScene('finalScreen');
+}
 
-    /* Code generation functions */
-    const SECRET = "SC7Geo2025-SA";
-    function fnv1aHex(str){
-      let h = 0x811c9dc5 >>> 0;
-      for(let i=0; i<str.length; i++){
-        h ^= str.charCodeAt(i);
-        h = (h + ((h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24))) >>> 0;
-      }
-      return ("00000000" + h.toString(16)).slice(-8).toUpperCase();
-    }
-    function base36(n,pad=2){
-      return Math.max(0, n|0).toString(36).toUpperCase().padStart(pad, "0");
-    }
-    function makeCode(name, cls, xp, visited){
-      const payload = `${SECRET}|${name}|${cls}|${xp}|${visited}|AndesAmazons`;
-      const sig = fnv1aHex(payload).slice(0,6);
-      return `SA-${base36(xp)}${base36(visited)}-${sig}`;
-    }
+/* ===================== Verify ===================== */
+function openVerify(){ document.getElementById('modalOverlay').classList.add('active'); document.getElementById('verifyResult').textContent=''; }
+function closeVerify(){ document.getElementById('modalOverlay').classList.remove('active'); }
+function checkVerify(){
+  const name=document.getElementById('verifyName').value.trim();
+  const cls=document.getElementById('verifyClass').value.trim();
+  const xp=parseInt(document.getElementById('verifyXP').value)||0;
+  const vis=parseInt(document.getElementById('verifyVisited').value)||0;
+  const code=document.getElementById('verifyCode').value.trim().toUpperCase();
+  const ok = (code===makeCode(name,cls,xp,vis));
+  const r=document.getElementById('verifyResult'); r.textContent = ok?'Valid ✔':'Invalid ✖'; r.style.color = ok?'#38B000':'#FF5964';
+}
 
-    /* Game state */
-    let state = {
-      xp: 0,
-      tp: 8,
-      visited: [], // array of country ids
-      answered: [], // answered question ids
-      eventsSeen: [], // event ids seen
-      currentCase: null,
-      location: null, // alias for current country
-      locationCountry: null, // current country id (for place travel)
-      lastPlaceId: null, // last visited place id
-      isFlying: false, // plane flight flag
-      flightStart: 0,
-      flightDuration: 0,
-      planeX: 0,
-      planeY: 0,
-      planeTargetX: 0,
-      planeTargetY: 0,
-      flightFromX: 0,
-      flightFromY: 0,
-      flightToX: 0,
-      flightToY: 0,
-      flightDestCountry: null,
-      flightDestPlace: null,
-      studentName: '',
-      className: '',
-      sound: true,
-      casesCompleted: {},
-      finalAnswered: false
-    };
+/* ===================== Input & Boot ===================== */
+let mapEventsBound=false;
+function bindMapEvents(){
+  if(mapEventsBound) return; mapEventsBound=true;
+  mapCanvas.addEventListener('mousemove', onMapMove);
+  mapCanvas.addEventListener('mouseout', onMapOut);
+  mapCanvas.addEventListener('click', onMapClick);
+}
+document.addEventListener('keydown', e=>{
+  if(e.key==='m'||e.key==='M'){ state.sound=!state.sound; saveState(); updateHUD(); beep(660,.05); }
+  if(e.key==='t'||e.key==='T'){ openVerify(); }
+  if(e.key==='Escape'){ closeVerify(); }
+});
 
-    const SAVE_KEY = 'AndesAmazonsSave';
-    function saveState(){
-      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-    }
-    function loadState(){
-      const data = localStorage.getItem(SAVE_KEY);
-      if(data){
-        try{
-          const obj = JSON.parse(data);
-          Object.assign(state, obj);
-        }catch(e){ console.error('Load failed', e); }
-      }
-    }
+function init(){
+  generateDither(); generateMap(); loadState(); setupTitle(); updateHUD();
+  document.getElementById('modalClose').onclick=closeVerify;
+  document.getElementById('verifyBtn').onclick=checkVerify;
+  hud.sound().onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); };
 
-    /* HUD elements references */
-    function hudCase(){ return document.getElementById('hudCase'); }
-    function hudStudent(){ return document.getElementById('hudStudent'); }
-    function hudClass(){ return document.getElementById('hudClass'); }
-    function hudXP(){ return document.getElementById('hudXP'); }
-    function hudTP(){ return document.getElementById('hudTP'); }
-    function hudVisited(){ return document.getElementById('hudVisited'); }
-    function hudSound(){ return document.getElementById('hudSound'); }
+  // HQ hook
+  // (Title screen buttons set scene)
+}
+function generateMap(){
+  mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
+  generateTopoBitmap(); buildMarkers(); bindMapEvents();
+}
+window.onload=init;
 
-    /* Audio setup */
-    let audioCtx;
-    function beep(freq = 440, duration=0.1){
-      if(!state.sound) return;
-      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'square';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      osc.start();
-      osc.stop(audioCtx.currentTime + duration);
-    }
+/* Title -> HQ hookup */
+setupTitle = setupTitle; // (no-op, clarity)
 
-    /* Utility for dither pattern generation */
-    let ditherDataUrl = '';
-    function generateDither(){
-      /*
-       * Create a simple checkerboard dither pattern instead of purely random noise.
-       * Alternating squares produce a crisp retro texture without excessive grain.
-       */
-      const c = document.createElement('canvas');
-      c.width = 8; c.height = 8;
-      const ctx = c.getContext('2d');
-      const imgd = ctx.createImageData(8,8);
-      for(let y=0; y<8; y++){
-        for(let x=0; x<8; x++){
-          const idx = (y*8 + x)*4;
-          // alternate between lighter and darker values to form a checker pattern
-          const val = ((x + y) % 2 === 0) ? 0x1A : 0x0A;
-          imgd.data[idx]   = 10 + val;   // red channel
-          imgd.data[idx+1] = 26 + val;   // green channel
-          imgd.data[idx+2] = 48 + val;   // blue channel
-          imgd.data[idx+3] = 255;        // alpha
-        }
-      }
-      ctx.putImageData(imgd,0,0);
-      ditherDataUrl = c.toDataURL();
-    }
+/* Map enter from Title/HQ/Country */
+function enterFromCountry(){ showScene('mapScreen'); enterMap(); }
 
-    /* Map projection */
-    let mapBounds = {};
-    let mapCanvas, mapCtx;
-    function computeBounds(){
-      let latMin=90, latMax=-90, lonMin=180, lonMax=-180;
-      DATA.countries.forEach(c=>{
-        if(c.lat < latMin) latMin = c.lat;
-        if(c.lat > latMax) latMax = c.lat;
-        if(c.lon < lonMin) lonMin = c.lon;
-        if(c.lon > lonMax) lonMax = c.lon;
-      });
-      // Add margins
-      latMin -= 5; latMax += 5;
-      lonMin -= 5; lonMax += 5;
-      // Override bounds to fixed South America extents for realistic alignment
-      latMin = -56; latMax = 13;
-      lonMin = -82; lonMax = -34;
-      mapBounds = {latMin, latMax, lonMin, lonMax};
-    }
-    function latLonToXY(lat, lon){
-      const {latMin, latMax, lonMin, lonMax} = mapBounds;
-      const x = (lon - lonMin) / (lonMax - lonMin) * mapCanvas.width;
-      const y = (latMax - lat) / (latMax - latMin) * mapCanvas.height;
-      return {x, y};
-    }
+/* Start HQ when requested */
+function setupFromTitle(){ showScene('hqScreen'); setupHQ(); }
 
-    /* Draw a simple pixel-art propeller plane at (x,y) on the map context.
-       An optional frame parameter controls propeller orientation (0–2).
-       Frame 0 draws a plus (+), frame 1 draws an X, frame 2 draws a vertical bar.
-    */
-    function drawPlane(ctx, x, y, frame){
-      if(frame === undefined) frame = 0;
-      // Define plane body dimensions
-      const bodyW = 14;
-      const bodyH = 4;
-      // Body and wings colors
-      ctx.fillStyle = '#FFD166';
-      ctx.strokeStyle = '#0A1A30';
-      ctx.lineWidth = 1;
-      // Main fuselage
-      ctx.fillRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
-      // Wings across middle
-      ctx.fillRect(x - bodyW/2 - 2, y - 1, bodyW + 4, 2);
-      // Tail fin
-      ctx.fillRect(x - bodyW/2 + 2, y - bodyH/2 - 3, 3, 3);
-      // Nose cone as triangle
-      ctx.beginPath();
-      ctx.moveTo(x + bodyW/2, y - bodyH/2);
-      ctx.lineTo(x + bodyW/2 + 3, y);
-      ctx.lineTo(x + bodyW/2, y + bodyH/2);
-      ctx.closePath();
-      ctx.fill();
-      // Propeller drawing based on frame
-      ctx.strokeStyle = '#E6EDF7';
-      ctx.beginPath();
-      const propX = x + bodyW/2 + 5;
-      const propY = y;
-      if(frame % 3 === 0){
-        // plus shape (horizontal and vertical)
-        ctx.moveTo(propX - 2, propY);
-        ctx.lineTo(propX + 2, propY);
-        ctx.moveTo(propX, propY - 2);
-        ctx.lineTo(propX, propY + 2);
-      } else if(frame % 3 === 1){
-        // X shape (diagonal)
-        ctx.moveTo(propX - 2, propY - 2);
-        ctx.lineTo(propX + 2, propY + 2);
-        ctx.moveTo(propX - 2, propY + 2);
-        ctx.lineTo(propX + 2, propY - 2);
-      } else {
-        // vertical only (|)
-        ctx.moveTo(propX, propY - 3);
-        ctx.lineTo(propX, propY + 3);
-      }
-      ctx.stroke();
-      // Outline the fuselage for contrast
-      ctx.strokeStyle = '#0A1A30';
-      ctx.strokeRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
-    }
+/* Title buttons built now that dither is ready (also on loadState) */
+function afterTitle(){}
 
-    /* Draw a city icon at (x,y) depending on place type. Icons are 16×16 pixel retro sprites.
-       kind: "capital", "heritage", "port", "amazon" or other. Visited/current status influences color.
-       We use simple geometric shapes drawn with fillRect for a chunky retro look. */
-    function drawCityIcon(ctx, x, y, kind, options){
-      const opt = options || {};
-      const visited = opt.visited;
-      const current = opt.current;
-      // base colors by kind
-      let baseColor;
-      switch(kind){
-        case 'capital': baseColor = '#FFD166'; break; // golden
-        case 'heritage': baseColor = '#4CC9F0'; break; // cyan
-        case 'port': baseColor = '#38B000'; break; // green
-        case 'amazon': baseColor = '#8AC926'; break; // jungle green
-        default: baseColor = '#4CC9F0';
-      }
-      // override colors for status
-      if(visited) baseColor = '#38B000';
-      if(current) baseColor = '#FFD166';
-      const px = x - 8;
-      const py = y - 8;
-      ctx.fillStyle = baseColor;
-      // Clear behind sprite for crisp edges
-      ctx.clearRect(px, py, 16, 16);
-      // Draw shape based on type
-      if(kind === 'capital'){
-        // plus/star shape
-        ctx.fillRect(px + 6, py + 0, 4, 4);
-        ctx.fillRect(px + 6, py + 12, 4, 4);
-        ctx.fillRect(px + 0, py + 6, 4, 4);
-        ctx.fillRect(px + 12, py + 6, 4, 4);
-        ctx.fillRect(px + 6, py + 6, 4, 4);
-      } else if(kind === 'heritage'){
-        // pyramid/mountain: three stacked rows decreasing
-        ctx.fillRect(px + 4, py + 8, 8, 4);
-        ctx.fillRect(px + 2, py + 4, 12, 4);
-        ctx.fillRect(px + 0, py + 0, 16, 4);
-      } else if(kind === 'port'){
-        // anchor-like: vertical line and crossbar
-        ctx.fillRect(px + 6, py + 0, 4, 12);
-        ctx.fillRect(px + 2, py + 8, 12, 4);
-        ctx.fillRect(px + 6, py + 12, 4, 4);
-      } else if(kind === 'amazon'){
-        // tree: trunk and canopy
-        ctx.fillRect(px + 6, py + 8, 4, 8);
-        ctx.fillRect(px + 4, py + 4, 8, 4);
-        ctx.fillRect(px + 2, py + 0, 12, 4);
-      } else {
-        // default diamond
-        ctx.beginPath();
-        ctx.moveTo(x, y - 6);
-        ctx.lineTo(x + 6, y);
-        ctx.lineTo(x, y + 6);
-        ctx.lineTo(x - 6, y);
-        ctx.closePath();
-        ctx.fill();
-      }
-      // outline for current
-      if(current){
-        ctx.strokeStyle = '#0A1A30';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, 15, 15);
-      }
-    }
+/* Rebuild Title after init */
+setTimeout(()=>{ setupTitle(); },0);
 
-    /* Render a procedural postcard canvas for a place and country. Returns a canvas element. */
-    function renderPostcard(place, country){
-      const w = 160;
-      const h = 100;
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      // background gradient based on place type
-      let gradStart, gradEnd;
-      switch(place.type){
-        case 'capital': gradStart = '#112240'; gradEnd = '#3A5BA0'; break;
-        case 'heritage': gradStart = '#2B2147'; gradEnd = '#6B4F92'; break;
-        case 'port': gradStart = '#0C2E4F'; gradEnd = '#1E5F99'; break;
-        case 'amazon': gradStart = '#123D2A'; gradEnd = '#2E7D32'; break;
-        default: gradStart = '#0D2C54'; gradEnd = '#4CC9F0';
-      }
-      const grad = ctx.createLinearGradient(0,0,0,h);
-      grad.addColorStop(0, gradStart);
-      grad.addColorStop(1, gradEnd);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,w,h);
-      // draw silhouettes based on type
-      ctx.fillStyle = 'rgba(10,26,48,0.8)';
-      ctx.strokeStyle = 'rgba(10,26,48,0.9)';
-      if(place.type === 'heritage'){
-        // mountains: three triangles
-        drawMountain(ctx, 20, h-20, 40, 30);
-        drawMountain(ctx, 60, h-15, 50, 25);
-        drawMountain(ctx, 110, h-18, 35, 22);
-      } else if(place.type === 'port'){
-        // skyline: rectangles of varying heights
-        drawBuilding(ctx, 20, h-20, 12, 20);
-        drawBuilding(ctx, 40, h-25, 10, 25);
-        drawBuilding(ctx, 60, h-18, 8, 18);
-        drawBuilding(ctx, 78, h-22, 14, 22);
-        drawBuilding(ctx, 98, h-16, 10, 16);
-      } else if(place.type === 'amazon'){
-        // river and trees
-        ctx.fillRect(0, h-25, w, 8);
-        drawTree(ctx, 30, h-35);
-        drawTree(ctx, 70, h-32);
-        drawTree(ctx, 110, h-38);
-      } else {
-        // capital or default: city skyline
-        drawBuilding(ctx, 20, h-20, 14, 20);
-        drawBuilding(ctx, 40, h-25, 10, 25);
-        drawBuilding(ctx, 60, h-18, 8, 18);
-        drawBuilding(ctx, 78, h-22, 12, 22);
-        drawBuilding(ctx, 96, h-16, 12, 16);
-      }
-      // stamp box with country code
-      ctx.fillStyle = '#0A1A30';
-      ctx.fillRect(w-42, 6, 36, 22);
-      ctx.strokeStyle = '#4CC9F0';
-      ctx.strokeRect(w-42, 6, 36, 22);
-      ctx.fillStyle = '#E6EDF7';
-      ctx.font = 'bold 10px monospace';
-      const code = country.name.slice(0,2).toUpperCase();
-      ctx.fillText(code, w-34, 21);
-      return canvas;
-    }
-    // helpers for postcard drawing
-    function drawMountain(ctx, x, baseY, width, height){
-      ctx.beginPath();
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x + width/2, baseY - height);
-      ctx.lineTo(x + width, baseY);
-      ctx.closePath();
-      ctx.fill();
-    }
-    function drawBuilding(ctx, x, topY, width, height){
-      ctx.fillRect(x, topY, width, height);
-    }
-    function drawTree(ctx, x, baseY){
-      // trunk
-      ctx.fillRect(x-2, baseY, 4, 10);
-      // canopy
-      ctx.beginPath();
-      ctx.arc(x, baseY - 2, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
+/* Hook HQ buttons explicitly when entering HQ from title */
+document.getElementById('titleButtons'); // placeholder
 
-    /* Generate a retro bitmap topographic map for South America */
-    let baseMapImage;
-    function generateTopoBitmap(){
-      /*
-       * Generate a simplified retro map for South America.
-       * Draw a filled landmass polygon based on approximate coastline coordinates
-       * and fill surrounding ocean with deep blue. A slight diagonal highlight
-       * gives a vintage feel reminiscent of old atlases.
-       */
-      const w = 320;
-      const h = 340;
-      const c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      const ctx = c.getContext('2d');
-      // fill ocean
-      ctx.fillStyle = '#0D2C54';
-      ctx.fillRect(0,0,w,h);
-      // South America outline (approximate lat/lon)
-      const outline = [
-        {lat: 12, lon: -60},   // northern Venezuela
-        {lat: 5, lon: -59},    // Guyana region
-        {lat: 5, lon: -34},    // NE Brazil coast
-        {lat: -15, lon: -35},  // eastern Brazil mid
-        {lat: -34, lon: -53},  // Uruguay coast
-        {lat: -38, lon: -58},  // Buenos Aires area
-        {lat: -55, lon: -70},  // southern tip near Tierra del Fuego
-        {lat: -40, lon: -72},  // Patagonia west
-        {lat: -10, lon: -72},  // Peru west
-        {lat: 2, lon: -80}     // Ecuador coast
-      ];
-      // conversion using fixed bounds same as computeBounds
-      const latMin = -56, latMax = 13, lonMin = -82, lonMax = -34;
-      function toXY(lat, lon){
-        const x = (lon - lonMin) / (lonMax - lonMin) * w;
-        const y = (latMax - lat) / (latMax - latMin) * h;
-        return {x,y};
-      }
-      // draw land polygon
-      ctx.fillStyle = '#2E8540';
-      ctx.beginPath();
-      outline.forEach((pt, i) => {
-        const {x, y} = toXY(pt.lat, pt.lon);
-        if(i === 0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
-      });
-      ctx.closePath();
-      ctx.fill();
-      // add a diagonal highlight for mountain feel
-      const imgd = ctx.getImageData(0,0,w,h);
-      for(let y=0; y<h; y++){
-        for(let x=0; x<w; x++){
-          const idx = (y*w + x)*4;
-          const fx = x / w;
-          const fy = y / h;
-          // highlight stronger near northwest to hint Andes
-          const factor = Math.max(0, 0.6 - (fx + fy) * 0.5);
-          imgd.data[idx]   = Math.min(255, imgd.data[idx] + factor*60);
-          imgd.data[idx+1] = Math.min(255, imgd.data[idx+1] + factor*60);
-          imgd.data[idx+2] = Math.min(255, imgd.data[idx+2] + factor*30);
-        }
-      }
-      ctx.putImageData(imgd,0,0);
-      baseMapImage = c;
-    }
+/* Build title initial buttons after generating dither */
+document.addEventListener('DOMContentLoaded', ()=>{});
 
-    /* Scene handling */
-    function showScene(id){
-      document.querySelectorAll('.scene').forEach(el=>el.classList.remove('show'));
-      const el = document.getElementById(id);
-      if(el) el.classList.add('show');
-      updateHUD();
-    }
-    function updateHUD(){
-      hudCase().textContent = state.currentCase ? `Case: ${getCaseById(state.currentCase).title}` : '';
-      hudStudent().textContent = state.studentName ? `Student: ${state.studentName}` : '';
-      hudClass().textContent = state.className ? `Class: ${state.className}` : '';
-      hudXP().textContent = `XP⭐ ${state.xp}`;
-      hudTP().textContent = `TP🚶 ${state.tp}`;
-      const totalCountries = DATA.countries.length;
-      hudVisited().textContent = `Visited📍 ${state.visited.length}/${totalCountries}`;
-      hudSound().textContent = state.sound ? '🔊' : '🔇';
-    }
+/* Title Start logic actually inside setupTitle; HQ inside setupHQ */
+function enterMapFromTitle(){ showScene('mapScreen'); enterMap(); }
 
-    /* Helpers to get country/case by id */
-    function getCountryById(id){ return DATA.countries.find(c=>c.id===id); }
-    function getCaseById(id){ return DATA.cases.find(c=>c.id===id); }
+/* Country back -> map */
+function backToMap(){ showScene('mapScreen'); enterMap(); }
 
-    /* Title Screen setup */
-    function setupTitleScreen(){
-      const container = document.getElementById('titleButtons');
-      container.innerHTML = '';
-      // Start or Continue button
-      if(state.currentCase && !state.finalAnswered){
-        const btnCont = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
-        container.appendChild(btnCont);
-      } else {
-        const btnStart = createButton('Start', () => {
-          // If no name/class saved, still allow; will ask in HQ
-          showScene('hqScreen');
-          setupHQ();
-        });
-        container.appendChild(btnStart);
-      }
-      // Always show New Game to reset
-      const btnNew = createButton('New Game', () => { newGame(); });
-      container.appendChild(btnNew);
-      const btnHow = createButton('How to Play', () => {
-        const how = document.getElementById('howTo');
-        how.style.display = how.style.display === 'none' ? 'block' : 'none';
-      });
-      container.appendChild(btnHow);
-      const btnSound = createButton(state.sound ? 'Sound Off' : 'Sound On', () => {
-        state.sound = !state.sound; saveState(); updateHUD(); setupTitleScreen(); beep(660,0.05);
-      });
-      container.appendChild(btnSound);
-    }
+/* ========== final small helpers ========== */
+function showHQ(){ showScene('hqScreen'); setupHQ(); }
 
-    /* HQ Screen setup */
-    function setupHQ(){
-      const hqIntro = document.getElementById('hqIntro');
-      hqIntro.textContent = 'Select a case to investigate.';
-      const caseList = document.getElementById('caseList');
-      caseList.innerHTML = '';
-      DATA.cases.forEach(c => {
-        const div = document.createElement('div');
-        div.style.margin = '8px 0';
-        const title = document.createElement('strong');
-        title.textContent = c.title;
-        div.appendChild(title);
-        const hook = document.createElement('p');
-        hook.textContent = c.hook;
-        hook.style.fontSize = '12px';
-        div.appendChild(hook);
-        const btn = createButton('Play', () => {
-          state.currentCase = c.id;
-          state.xp = 0;
-          state.tp = 8;
-          state.visited = [];
-          state.answered = [];
-          state.eventsSeen = [];
-          state.location = null;
-          state.locationCountry = null;
-          state.lastPlaceId = null;
-          state.finalAnswered = false;
-          state.isFlying = false;
-          // Reset flight variables and plane coordinates
-          state.flightStart = 0;
-          state.flightDuration = 0;
-          state.planeX = 0;
-          state.planeY = 0;
-          state.planeTargetX = 0;
-          state.planeTargetY = 0;
-          state.flightFromX = 0;
-          state.flightFromY = 0;
-          state.flightToX = 0;
-          state.flightToY = 0;
-          state.flightDestCountry = null;
-          state.flightDestPlace = null;
-          saveState();
-          showScene('mapScreen');
-          rebuildMarkers();
-          startMapLoop();
-        });
-        div.appendChild(btn);
-        caseList.appendChild(div);
-      });
-      document.getElementById('studentName').value = state.studentName;
-      document.getElementById('className').value = state.className;
-      const hqButtons = document.getElementById('hqButtons');
-      hqButtons.innerHTML = '';
-      const saveBtn = createButton('Save & Continue', () => {
-        state.studentName = document.getElementById('studentName').value.trim();
-        state.className = document.getElementById('className').value.trim();
-        saveState();
-        beep(550,0.05);
-        setupHQ();
-      });
-      hqButtons.appendChild(saveBtn);
-      const backBtn = createButton('Back to Title', () => {
-        showScene('titleScreen');
-        setupTitleScreen();
-      });
-      hqButtons.appendChild(backBtn);
-    }
+/* Replace Start button behavior now that everything is loaded */
+function titleStart(){ showScene('hqScreen'); setupHQ(); }
 
-    /* Create a button using the dither background */
-    function createButton(label, handler){
-      const btn = document.createElement('div');
-      btn.className = 'btn';
-      btn.textContent = label;
-      btn.style.backgroundImage = `url(${ditherDataUrl})`;
-      btn.tabIndex = 0;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handler();
-        beep(440, 0.05);
-      });
-      btn.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); handler(); beep(440,0.05); }
-      });
-      return btn;
-    }
+/* Prepare title buttons now that dither is set */
+(function refreshTitle(){
+  const ready = !!ditherDataUrl;
+  if(!ready){ setTimeout(refreshTitle,30); return; }
+  setupTitle();
+})();
 
-    /* Start a new game */
-    function newGame(){
-      state = {
-        xp: 0,
-        tp: 8,
-        visited: [],
-        answered: [],
-        eventsSeen: [],
-        currentCase: null,
-        location: null,
-        locationCountry: null,
-        lastPlaceId: null,
-        isFlying: false,
-        flightStart: 0,
-        flightDuration: 0,
-        planeX: 0,
-        planeY: 0,
-        planeTargetX: 0,
-        planeTargetY: 0,
-        flightFromX: 0,
-        flightFromY: 0,
-        flightToX: 0,
-        flightToY: 0,
-        flightDestCountry: null,
-        flightDestPlace: null,
-        studentName: '',
-        className: '',
-        sound: state.sound,
-        casesCompleted: {},
-        finalAnswered: false
-      };
-      saveState();
-      setupTitleScreen();
-      showScene('titleScreen');
-    }
+/* Map screen entry helper called from title/hq */
+function enterMapWrapper(){ showScene('mapScreen'); enterMap(); }
 
-    /* Map rendering and interaction */
-    let placeMarkers = []; // array of {countryId, placeId, x, y, type}
-    let hoveredMarker = null;
-    let mapAnimationId;
+/* -------- draw initial title -> click path wired in setupTitle() -------- */
 
-    // Flag to ensure map events are attached only once
-    let mapEventsAttached = false;
-
-    /* Attach mousemove, mouseout and click handlers to the map canvas once */
-    function setupMapEvents(){
-      if(mapEventsAttached) return;
-      // ensure mapCanvas is defined
-      if(!mapCanvas){ mapCanvas = document.getElementById('mapCanvas'); mapCtx = mapCanvas.getContext('2d'); }
-      mapCanvas.addEventListener('mousemove', handleMapMouseMove);
-      mapCanvas.addEventListener('mouseout', handleMapMouseOut);
-      mapCanvas.addEventListener('click', handleMapClick);
-      mapEventsAttached = true;
-    }
-
-    function rebuildMarkers(){
-      placeMarkers = [];
-      DATA.countries.forEach(country => {
-        if(country.places){
-          country.places.forEach(pl => {
-            const {x, y} = latLonToXY(pl.lat, pl.lon);
-            placeMarkers.push({countryId: country.id, placeId: pl.id, x, y, type: pl.type, name: pl.name});
-          });
-        } else {
-          // fallback: single marker at country capital
-          const {x,y} = latLonToXY(country.lat, country.lon);
-          placeMarkers.push({countryId: country.id, placeId: country.id+'_capital', x, y, type:'capital', name: country.capital});
-        }
-      });
-    }
-    function renderMap(){
-      if(!mapCanvas){ mapCanvas = document.getElementById('mapCanvas'); mapCtx = mapCanvas.getContext('2d'); }
-      // ensure canvas dimensions based on parent container; fall back to window
-      const container = mapCanvas.parentElement;
-      let cw = container && container.clientWidth ? container.clientWidth : mapCanvas.clientWidth;
-      let ch = container && container.clientHeight ? container.clientHeight : mapCanvas.clientHeight;
-      // Fallback to window dimensions if layout not ready (0 size)
-      if(!cw || cw <= 0) cw = window.innerWidth;
-      if(!ch || ch <= 0) ch = window.innerHeight - 80;
-      mapCanvas.width = cw;
-      mapCanvas.height = ch;
-      mapCtx.imageSmoothingEnabled = false;
-      // draw base bitmap
-      mapCtx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
-      mapCtx.drawImage(baseMapImage, 0, 0, baseMapImage.width, baseMapImage.height, 0, 0, mapCanvas.width, mapCanvas.height);
-      // draw edges between countries
-      mapCtx.strokeStyle = 'rgba(255,255,255,0.15)';
-      mapCtx.lineWidth = 1;
-      DATA.edges.forEach(([a,b]) => {
-        const A = getCountryById(a);
-        const B = getCountryById(b);
-        const pA = latLonToXY(A.lat, A.lon);
-        const pB = latLonToXY(B.lat, B.lon);
-        mapCtx.beginPath();
-        mapCtx.moveTo(pA.x, pA.y);
-        mapCtx.lineTo(pB.x, pB.y);
-        mapCtx.stroke();
-      });
-      // draw city markers
-      placeMarkers.forEach(mk => {
-        const visited = state.visited.includes(mk.countryId);
-        const current = (state.lastPlaceId === mk.placeId);
-        const isHovered = (hoveredMarker && hoveredMarker.placeId === mk.placeId);
-        // for hover effect, we might lighten or border; we pass status to drawCityIcon
-        drawCityIcon(mapCtx, mk.x, mk.y, mk.type, {visited: visited, current: current || isHovered});
-      });
-      // draw plane
-      drawAnimatedPlane();
-      // update legend and message
-      const msgDiv = document.getElementById('mapMsg');
-      const btnsDiv = document.getElementById('mapButtons');
-      if(state.locationCountry && state.lastPlaceId){
-        const country = getCountryById(state.locationCountry);
-        const place = placeMarkers.find(p=>p.placeId===state.lastPlaceId);
-        msgDiv.textContent = `Current: ${country.name} • ${place ? place.name : ''}`;
-      } else {
-        msgDiv.textContent = 'Choose a starting city';
-      }
-      // buttons: HQ and Resolve
-      btnsDiv.innerHTML = '';
-      if(state.currentCase){
-        const caseData = getCaseById(state.currentCase);
-        if(!state.finalAnswered && state.xp >= caseData.winCondition.minXP && state.visited.length >= caseData.winCondition.minVisited){
-          const btn = createButton('Resolve Case', () => { showFinalQuestion(); });
-          btnsDiv.appendChild(btn);
-        }
-      }
-      const backBtn = createButton('HQ', () => { showScene('hqScreen'); setupHQ(); });
-      btnsDiv.appendChild(backBtn);
-    }
-    function drawAnimatedPlane(){
-      if(!mapCtx) return;
-      let px = state.planeX;
-      let py = state.planeY;
-      // when idle and not flying, bob plane
-      let bob = 0;
-      let propFrame = 0;
-      if(!state.isFlying){
-        bob = Math.sin(Date.now()/250) * 2;
-        propFrame = Math.floor((Date.now()/100) % 3);
-      } else {
-        // during flight update position based on interpolation
-        const now = performance.now();
-        const t = Math.min(1, (now - state.flightStart)/state.flightDuration);
-        px = state.planeX = state.flightFromX + (state.flightToX - state.flightFromX) * t;
-        py = state.planeY = state.flightFromY + (state.flightToY - state.flightFromY) * t;
-        propFrame = Math.floor(((now - state.flightStart)/80) % 3);
-        if(t >= 1){
-          finishFlight();
-        }
-      }
-      drawPlane(mapCtx, px, py + bob, propFrame);
-    }
-    // handle mouse move for tooltip
-    function handleMapMouseMove(evt){
-      const rect = mapCanvas.getBoundingClientRect();
-      const mx = evt.clientX - rect.left;
-      const my = evt.clientY - rect.top;
-      // find nearest marker
-      let nearest = null;
-      let nearestDist = 999999;
-      placeMarkers.forEach(mk => {
-        const dx = mx - mk.x;
-        const dy = my - mk.y;
-        const d2 = dx*dx + dy*dy;
-        if(d2 < nearestDist){ nearestDist = d2; nearest = mk; }
-      });
-      // threshold for hover (scaled by marker size ~16)
-      const threshold = 16 * (mapCanvas.width / 400); // scale threshold with size
-      if(nearest && nearestDist < threshold * threshold){
-        hoveredMarker = nearest;
-        showTooltip(nearest, mx, my);
-      } else {
-        hoveredMarker = null;
-        hideTooltip();
-      }
-    }
-    function handleMapMouseOut(){
-      hoveredMarker = null;
-      hideTooltip();
-    }
-    function handleMapClick(evt){
-      if(state.isFlying) return;
-      const rect = mapCanvas.getBoundingClientRect();
-      const mx = evt.clientX - rect.left;
-      const my = evt.clientY - rect.top;
-      // find clicked marker using same threshold as hover
-      let clicked = null;
-      let dist = 999999;
-      placeMarkers.forEach(mk => {
-        const dx = mx - mk.x;
-        const dy = my - mk.y;
-        const d2 = dx*dx + dy*dy;
-        if(d2 < dist){ dist = d2; clicked = mk; }
-      });
-      const threshold = 16 * (mapCanvas.width / 400);
-      if(clicked && dist < threshold*threshold){
-        startFlight(clicked);
-      }
-    }
-    function showTooltip(marker, mx, my){
-      const tip = document.getElementById('mapTooltip');
-      tip.style.display = 'block';
-      tip.textContent = `${marker.name} • ${getCountryById(marker.countryId).name}`;
-      tip.style.left = (mx + 10) + 'px';
-      tip.style.top = (my + 10) + 'px';
-      tip.style.backgroundImage = `url(${ditherDataUrl})`;
-    }
-    function hideTooltip(){
-      const tip = document.getElementById('mapTooltip');
-      tip.style.display = 'none';
-    }
-    function startFlight(marker){
-      const destCountryId = marker.countryId;
-      const destPlaceId = marker.placeId;
-      // if this is the first move, no cost and no adjacency check
-      if(state.locationCountry){
-        // check adjacency
-        const allowed = DATA.edges.some(([a,b]) => (a===state.locationCountry && b===destCountryId) || (b===state.locationCountry && a===destCountryId));
-        if(!allowed){ alert('You cannot travel directly there.'); return; }
-        if(state.tp <= 0){ alert('No Travel Points!'); return; }
-        state.tp -= 1;
-      }
-      // set flight path
-      state.isFlying = true;
-      state.flightStart = performance.now();
-      state.flightDuration = 700 + Math.random()*200;
-      // set from positions: if we already have plane coords use them else compute from current place/country
-      let fromX, fromY;
-      if(state.locationCountry && state.lastPlaceId){
-        const fromMarker = placeMarkers.find(mk => mk.placeId === state.lastPlaceId);
-        if(fromMarker){ fromX = fromMarker.x; fromY = fromMarker.y; }
-        else {
-          // fallback to country centroid
-          const c = getCountryById(state.locationCountry);
-          const p = latLonToXY(c.lat, c.lon);
-          fromX = p.x; fromY = p.y;
-        }
-      } else {
-        // initial start: plane starts offscreen; place at dest start
-        fromX = marker.x;
-        fromY = marker.y;
-      }
-      state.flightFromX = fromX;
-      state.flightFromY = fromY;
-      state.flightToX = marker.x;
-      state.flightToY = marker.y;
-      // update destination for finalization
-      state.flightDestCountry = destCountryId;
-      state.flightDestPlace = destPlaceId;
-      // update visited countries list now (so HUD updates during flight)
-      if(!state.visited.includes(destCountryId)) state.visited.push(destCountryId);
-      saveState();
-    }
-    function finishFlight(){
-      state.isFlying = false;
-      // update location and place
-      state.locationCountry = state.flightDestCountry;
-      state.location = state.flightDestCountry; // maintain compatibility
-      state.lastPlaceId = state.flightDestPlace;
-      state.planeX = state.flightToX;
-      state.planeY = state.flightToY;
-      // after arrival, maybe event and show country screen
-      const countryId = state.locationCountry;
-      // random event on travel
-      if(Math.random() < 0.4) maybeEvent(countryId);
-      saveState();
-      showCountry(countryId);
-    }
-    // start animation loop
-    function startMapLoop(){
-      if(mapAnimationId) cancelAnimationFrame(mapAnimationId);
-      // attach event handlers once when map loop begins
-      setupMapEvents();
-      function loop(){
-        renderMap();
-        mapAnimationId = requestAnimationFrame(loop);
-      }
-      loop();
-    }
-
-    /* Travel to a country */
-    function travelTo(id){
-      if(state.tp <= 0 && state.location){ alert('No Travel Points!'); return; }
-      if(state.location){
-        const allowed = DATA.edges.some(([a,b]) => (a===state.location && b===id) || (b===state.location && a===id));
-        if(!allowed){ alert('You cannot travel directly there.'); return; }
-      }
-      if(state.location) state.tp -= 1;
-      state.location = id;
-      if(!state.visited.includes(id)) state.visited.push(id);
-      saveState();
-      if(Math.random() < 0.4) maybeEvent(id);
-      showCountry(id);
-    }
-
-    /* Country screen display */
-    function showCountry(countryId){
-      const country = getCountryById(countryId);
-      const contentDiv = document.getElementById('countryContent');
-      contentDiv.innerHTML = '';
-      // Determine current place
-      let place = null;
-      if(state.lastPlaceId){
-        place = placeMarkers.find(p => p.placeId === state.lastPlaceId);
-      }
-      // draw postcard if place exists
-      if(place){
-        const card = renderPostcard(place, country);
-        contentDiv.appendChild(card);
-      }
-      // Title with country and city name
-      const title = document.createElement('h2');
-      title.textContent = place ? `${country.name} • ${place.name}` : `${country.name}`;
-      contentDiv.appendChild(title);
-      // NPC greeting
-      const npcName = country.npcs[Math.floor(Math.random()*country.npcs.length)];
-      const npcDiv = document.createElement('div');
-      npcDiv.className = 'npc';
-      npcDiv.textContent = `${npcName}:`;
-      contentDiv.appendChild(npcDiv);
-      // Determine question or fact
-      const remainingQs = country.questions.filter(q => !state.answered.includes(q.id));
-      if(remainingQs.length > 0){
-        const q = remainingQs[Math.floor(Math.random()*remainingQs.length)];
-        const p = document.createElement('p');
-        p.textContent = q.prompt;
-        contentDiv.appendChild(p);
-        q.choices.forEach((choiceText, idx) => {
-          const ch = document.createElement('div');
-          ch.className = 'choice';
-          ch.textContent = `${idx+1}. ${choiceText}`;
-          ch.style.backgroundImage = `url(${ditherDataUrl})`;
-          ch.tabIndex = 0;
-          ch.addEventListener('click', () => { handleAnswer(q, idx, ch); });
-          ch.addEventListener('keydown', (e) => {
-            if(['1','2','3','4'].includes(e.key)){
-              const i = parseInt(e.key)-1;
-              if(i>=0 && i<q.choices.length) handleAnswer(q,i,ch);
-            }
-            if(e.key === 'Enter' || e.key === ' ') ch.click();
-          });
-          contentDiv.appendChild(ch);
-        });
-      } else {
-        const fact = country.regionFacts[Math.floor(Math.random()*country.regionFacts.length)];
-        const p = document.createElement('p');
-        p.textContent = fact;
-        contentDiv.appendChild(p);
-        const okBtn = createButton('Back to Map', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
-        contentDiv.appendChild(okBtn);
-      }
-      // Always show travel brochure for this location if available
-      if(country.brochure){
-        const br = document.createElement('div');
-        br.className = 'brochure';
-        br.textContent = country.brochure;
-        contentDiv.appendChild(br);
-      }
-      showScene('countryScreen');
-    }
-
-    /* Handle answer selection */
-    function handleAnswer(question, idx, element){
-      if(element.dataset.answered) return;
-      element.dataset.answered = 'true';
-      const correct = idx === question.answer;
-      if(correct){ state.xp += 2; element.classList.add('correct'); beep(880, 0.15); }
-      else { state.xp = Math.max(0, state.xp - 1); element.classList.add('incorrect'); beep(220, 0.15); }
-      state.answered.push(question.id);
-      saveState();
-      setTimeout(() => {
-        const explain = document.createElement('p');
-        explain.style.fontStyle = 'italic';
-        explain.textContent = question.explain;
-        element.parentNode.appendChild(explain);
-        const okBtn = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
-        element.parentNode.appendChild(okBtn);
-      }, 300);
-      const siblings = element.parentNode.querySelectorAll('.choice');
-      siblings.forEach(ch => {
-        ch.style.pointerEvents = 'none';
-      });
-    }
-
-    /* Random events */
-    function maybeEvent(id){
-      const country = getCountryById(id);
-      if(!country.events || country.events.length === 0) return;
-      const eventsLeft = country.events.filter(e => !state.eventsSeen.includes(e.id));
-      let evt;
-      if(eventsLeft.length > 0) evt = eventsLeft[Math.floor(Math.random()*eventsLeft.length)];
-      else evt = country.events[Math.floor(Math.random()*country.events.length)];
-      state.eventsSeen.push(evt.id);
-      if(evt.effect && typeof evt.effect.tp === 'number'){
-        state.tp += evt.effect.tp;
-        if(state.tp < 0) state.tp = 0;
-      }
-      saveState();
-      const contentDiv = document.getElementById('countryContent');
-      const msg = document.createElement('div');
-      msg.style.margin = '8px 0';
-      msg.innerHTML = `<strong>Event:</strong> ${evt.title}<br>${evt.text}`;
-      contentDiv.appendChild(msg);
-      if(evt.quickCheck){
-        const qc = evt.quickCheck;
-        const p = document.createElement('p');
-        p.textContent = qc.prompt;
-        contentDiv.appendChild(p);
-        qc.choices.forEach((text, i) => {
-          const ch = document.createElement('div');
-          ch.className = 'choice';
-          ch.textContent = `${i+1}. ${text}`;
-          ch.style.backgroundImage = `url(${ditherDataUrl})`;
-          ch.tabIndex = 0;
-          ch.addEventListener('click', () => { handleQC(qc, i, ch); });
-          ch.addEventListener('keydown', (e) => {
-            if(['1','2','3','4'].includes(e.key)){
-              const idxSel = parseInt(e.key)-1;
-              if(idxSel>=0 && idxSel<qc.choices.length) handleQC(qc, idxSel, ch);
-            }
-            if(e.key === 'Enter' || e.key === ' ') ch.click();
-          });
-          contentDiv.appendChild(ch);
-        });
-        function handleQC(qcObj, idxSel, clickedEl){
-          if(clickedEl.dataset.answered) return;
-          clickedEl.dataset.answered = 'true';
-          const correct = idxSel === qcObj.answer;
-          if(correct){ state.xp += 2; clickedEl.classList.add('correct'); beep(880,0.15); }
-          else { state.xp = Math.max(0,state.xp-1); clickedEl.classList.add('incorrect'); beep(220,0.15); }
-          saveState();
-          setTimeout(() => {
-            const ex = document.createElement('p');
-            ex.style.fontStyle = 'italic';
-            ex.textContent = qcObj.explain;
-            contentDiv.appendChild(ex);
-            const cont = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
-            contentDiv.appendChild(cont);
-          }, 300);
-          const sibs = clickedEl.parentNode.querySelectorAll('.choice');
-          sibs.forEach(cc => { cc.style.pointerEvents = 'none'; });
-        }
-      }
-    }
-
-    /* Final question / resolution */
-    function showFinalQuestion(){
-      const caseData = getCaseById(state.currentCase);
-      const fQ = caseData.winCondition.finalQuestion;
-      const finalDiv = document.getElementById('finalContent');
-      finalDiv.innerHTML = '';
-      const h = document.createElement('h2');
-      h.textContent = 'Case Resolution';
-      finalDiv.appendChild(h);
-      const p = document.createElement('p');
-      p.textContent = fQ.prompt;
-      finalDiv.appendChild(p);
-      fQ.choices.forEach((text,i) => {
-        const ch = document.createElement('div');
-        ch.className = 'choice';
-        ch.textContent = `${i+1}. ${text}`;
-        ch.style.backgroundImage = `url(${ditherDataUrl})`;
-        ch.tabIndex = 0;
-        ch.addEventListener('click', () => {
-          if(ch.dataset.answered) return;
-          ch.dataset.answered = 'true';
-          const correct = i === fQ.answer;
-          if(correct){ state.xp += 2; ch.classList.add('correct'); beep(880,0.2); }
-          else { state.xp = Math.max(0,state.xp - 2); ch.classList.add('incorrect'); beep(150,0.2); }
-          saveState();
-          setTimeout(() => {
-            const msg = document.createElement('p');
-            msg.innerHTML = correct ? 'You solved the case! ' : 'Incorrect, but case completed.';
-            finalDiv.appendChild(msg);
-            state.finalAnswered = true;
-            state.casesCompleted[state.currentCase] = true;
-            const code = makeCode(state.studentName, state.className, state.xp, state.visited.length);
-            const codeP = document.createElement('p');
-            codeP.innerHTML = `Completion Code: <strong>${code}</strong>`;
-            finalDiv.appendChild(codeP);
-            const againBtn = createButton('Back to HQ', () => {
-              state.currentCase = null;
-              saveState();
-              setupHQ();
-              showScene('hqScreen');
-            });
-            finalDiv.appendChild(againBtn);
-            const verifyBtn = createButton('Verify Code', () => { openVerify(); });
-            finalDiv.appendChild(verifyBtn);
-          }, 300);
-        });
-        ch.addEventListener('keydown', (e) => {
-          if(['1','2','3','4'].includes(e.key)){
-            const idxSel = parseInt(e.key)-1;
-            const children = finalDiv.querySelectorAll('.choice');
-            if(idxSel>=0 && idxSel<children.length) children[idxSel].click();
-          }
-          if(e.key === 'Enter' || e.key === ' ') ch.click();
-        });
-        finalDiv.appendChild(ch);
-      });
-      showScene('finalScreen');
-    }
-
-    /* Verify panel functions */
-    function openVerify(){
-      document.getElementById('modalOverlay').classList.add('active');
-      document.getElementById('verifyResult').textContent = '';
-    }
-    function closeVerify(){
-      document.getElementById('modalOverlay').classList.remove('active');
-    }
-    function checkCode(){
-      const name = document.getElementById('verifyName').value.trim();
-      const cls = document.getElementById('verifyClass').value.trim();
-      const xp = parseInt(document.getElementById('verifyXP').value);
-      const visited = parseInt(document.getElementById('verifyVisited').value);
-      const code = document.getElementById('verifyCode').value.trim().toUpperCase();
-      const expected = makeCode(name, cls, xp, visited);
-      const resultDiv = document.getElementById('verifyResult');
-      if(code === expected){ resultDiv.textContent = 'Valid ✔'; resultDiv.style.color = '#38B000'; }
-      else { resultDiv.textContent = 'Invalid ✖'; resultDiv.style.color = '#FF5964'; }
-    }
-
-    /* Initialize everything */
-    function init(){
-      generateDither();
-      generateTopoBitmap();
-      computeBounds();
-      loadState();
-      setupTitleScreen();
-      showScene('titleScreen');
-      document.getElementById('modalClose').onclick = closeVerify;
-      document.getElementById('verifyBtn').onclick = checkCode;
-      hudSound().onclick = () => { state.sound = !state.sound; saveState(); updateHUD(); };
-      document.addEventListener('keydown', (e) => {
-        if(e.key === 'm' || e.key === 'M'){ state.sound = !state.sound; saveState(); updateHUD(); beep(660,0.05); }
-        if(e.key === 't' || e.key === 'T'){ openVerify(); }
-        if(e.key === 'Escape'){ closeVerify(); }
-      });
-    }
-    window.onload = init;
-  </script>
+</script>
 </body>
 </html>
+
