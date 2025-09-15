@@ -134,6 +134,12 @@ function showScene(id){
 function getCountry(id){ return DATA.countries.find(c=>c.id===id); }
 function getCase(id){ return DATA.cases.find(c=>c.id===id); }
 
+function setMapLoading(on){
+  const s = document.getElementById('mapScreen');
+  if(!s) return;
+  s.classList.toggle('loading', !!on);
+}
+
 /* ===================== Title & HQ ===================== */
 function setupTitle(){
   const wrap=document.getElementById('titleButtons'); wrap.innerHTML='';
@@ -378,6 +384,7 @@ function generateTopoBitmap(){
   x.putImageData(img,0,0);
 
   baseMapImage = c;
+  setMapLoading(false);
 }
 function drawPlane(ctx,x,y,frame=0){
   const bw=14,bh=4;
@@ -472,6 +479,7 @@ function renderMap(){
   btns.appendChild(btn('HQ', ()=>{ showScene('hqScreen'); setupHQ(); }));
 }
 function enterMap(){
+  setMapLoading(!baseMapImage);   // show only if map bitmap isn’t ready yet
   buildMarkers(); hovered=null;
   if(mapRAF) cancelAnimationFrame(mapRAF);
   const loop=()=>{ renderMap(); mapRAF=requestAnimationFrame(loop); };
@@ -711,7 +719,6 @@ function init(){
   measureHud();                      // initial measurement
   window.addEventListener('resize', measureHud);
   generateTopoBitmap(); buildMarkers(); buildSprites();
-  requestAnimationFrame(()=>{ const L=document.getElementById('loading'); if(L) L.style.display='none'; });
 
   document.getElementById('modalClose').onclick=closeVerify;
   document.getElementById('verifyBtn').onclick=checkVerify;
