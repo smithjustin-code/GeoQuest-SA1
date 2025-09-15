@@ -1,0 +1,124 @@
+/* ---------- Theme & Fonts ---------- */
+:root{
+  --bg:#0b1021; --bg-deep:#060914;
+  --text:#E6EDF7; --text-dim:#b9c6da;
+  --cyan:#52E0E0; --gold:#FFD166; --green:#67F28C; --danger:#FF5964;
+  --magenta:#ff77a8; --purple:#b86cff;
+  --ocean:#0D2C54; --land:#2E8540;
+  --glow: drop-shadow(0 0 6px rgba(82,224,224,.35)) drop-shadow(0 0 12px rgba(82,224,224,.2));
+}
+html,body{
+  margin:0;height:100%;
+  background: radial-gradient(1200px 800px at 50% 20%, #0f1630 0%, var(--bg) 40%, var(--bg-deep) 100%);
+  color:var(--text);
+  font-family:'VT323', ui-monospace, monospace;
+  font-size:18px;
+  overflow:hidden;
+}
+h1,h2,h3{ font-family:'Press Start 2P', 'VT323', monospace; letter-spacing:.02em }
+h1{ font-size:28px; text-transform:uppercase; filter:var(--glow) }
+h2{ font-size:18px }
+h3{ font-size:14px; color:var(--text-dim) }
+
+/* ---------- CRT look ---------- */
+.crt{ position:relative; isolation:isolate; filter:saturate(1.05) contrast(1.08) }
+.crt::before{
+  content:""; position:fixed; inset:-2%; pointer-events:none; z-index:2;
+  background:
+    radial-gradient(200% 130% at 50% 10%, transparent 60%, rgba(0,0,0,.35) 85%, rgba(0,0,0,.8) 100%),
+    radial-gradient(120% 100% at 50% 50%, rgba(255,255,255,.06), transparent 70%);
+  mix-blend-mode:multiply; border-radius:2.5%/1.5%;
+}
+.scanlines::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:2;
+  background:repeating-linear-gradient(to bottom, rgba(0,0,0,.18) 0px, rgba(0,0,0,.18) 2px, transparent 3px, transparent 4px);
+  mix-blend-mode:multiply;
+}
+
+/* ---------- HUD ---------- */
+#hud{
+  position:absolute; top:0; left:0; right:0; z-index:3;
+  background:linear-gradient(180deg, rgba(12,24,48,.85), rgba(10,20,40,.55));
+  padding:6px 10px; font-size:14px; display:flex; gap:14px; flex-wrap:wrap;
+  border-bottom:1px solid rgba(82,224,224,.35);
+  box-shadow:0 6px 14px rgba(0,0,0,.35);
+  backdrop-filter:blur(2px);
+}
+#hud span{ white-space:nowrap; text-shadow:0 1px 0 rgba(0,0,0,.6) }
+
+/* ---------- Scenes ---------- */
+.scene{ position:absolute; inset:0; padding-top:56px; display:none; overflow:auto }
+.scene.show{ display:block }
+.center{ max-width:780px; margin:0 auto; padding:18px 18px 28px; text-align:center }
+.scene::before{
+  content:""; position:absolute; inset:0; z-index:-1; opacity:.14;
+  background:
+    linear-gradient(transparent 31px, rgba(255,255,255,.08) 32px),
+    linear-gradient(90deg, transparent 31px, rgba(255,255,255,.08) 32px);
+  background-size:32px 32px;
+}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-block; cursor:pointer; user-select:none;
+  padding:8px 14px; margin:6px; color:var(--text);
+  border:2px solid var(--cyan); background:linear-gradient(180deg,#0e223f,#0a1830);
+  box-shadow:0 0 0 2px #000 inset, 0 6px 14px rgba(0,0,0,.35);
+  text-transform:uppercase; letter-spacing:.08em; font-family:'Press Start 2P', 'VT323', monospace; font-size:12px;
+  position:relative; transition:transform .06s ease, filter .15s ease, border-color .15s ease;
+  filter:var(--glow);
+}
+.btn:hover{ border-color:var(--gold); transform:translateY(-1px) }
+.btn:active{ transform:translateY(1px) }
+.btn:focus-visible{ outline:2px dashed var(--gold); outline-offset:2px }
+.btn--primary{ border-color:var(--gold); background:linear-gradient(180deg,#2a2040,#161030) }
+
+/* ---------- Choices ---------- */
+.choice{
+  border:2px solid rgba(82,224,224,.45);
+  padding:8px 10px; margin:8px 0; cursor:pointer; background:linear-gradient(180deg,#0e1d37,#0a1630);
+  box-shadow:0 0 0 1px #000 inset; transition:border-color .15s ease, transform .06s ease;
+}
+.choice:hover{ transform:translateY(-1px); border-color:var(--cyan) }
+.choice.correct{ border-color:var(--green); box-shadow:0 0 12px rgba(103,242,140,.25) }
+.choice.incorrect{ border-color:var(--danger); box-shadow:0 0 12px rgba(255,89,100,.25) }
+.npc{ font-style:italic; margin-bottom:6px; color:var(--text-dim) }
+.brochure{
+  border:1px solid rgba(82,224,224,.35); background:linear-gradient(180deg,#0f2a47,#0a1f36);
+  padding:10px; margin-top:12px; font-size:15px; border-radius:6px
+}
+
+/* ---------- Map ---------- */
+#mapCanvas{ display:block; width:100%; height:calc(100% - 80px); image-rendering:pixelated }
+#mapTooltip{
+  position:absolute; pointer-events:none; border:1px solid var(--gold); padding:4px 8px; font-size:13px;
+  background:#0e1d37; color:var(--text); z-index:4; display:none; border-radius:4px;
+  box-shadow:0 8px 16px rgba(0,0,0,.35);
+}
+
+/* ---------- Modal ---------- */
+#modalOverlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(8,16,32,.82); z-index:5; backdrop-filter:blur(1px) }
+#modalOverlay.active{ display:flex }
+#modal{ width:min(520px,92%); background:#0a1630; border:2px solid var(--purple); padding:16px; position:relative; box-shadow:0 18px 40px rgba(0,0,0,.5); border-radius:8px }
+#modal input{ width:100%; box-sizing:border-box; border:1px solid var(--cyan); background:#0F2A47; color:var(--text); padding:8px; margin:6px 0; border-radius:4px }
+#modal .close{ position:absolute; right:8px; top:8px; cursor:pointer }
+
+/* ---------- Legend ---------- */
+#legend{ font-size:12px; opacity:.9 }
+
+/* ---------- Loading ---------- */
+#loading{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  background:rgba(10,26,48,.85); z-index:4; font-size:14px; letter-spacing:.08em;
+}
+
+/* ---------- Toasts ---------- */
+#toasts{ position:fixed; right:10px; top:64px; display:flex; flex-direction:column; gap:8px; z-index:6 }
+.toast{
+  background:linear-gradient(180deg,#13264a,#0c1a34); color:var(--text);
+  border:1px solid var(--cyan); padding:8px 10px; font-size:13px; border-radius:6px;
+  box-shadow:0 10px 20px rgba(0,0,0,.35);
+  animation: slideIn .18s ease-out, fadeOut .35s ease-in 2.3s forwards;
+}
+@keyframes slideIn{ from{ transform:translateY(-8px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
+@keyframes fadeOut{ to{ opacity:0; transform:translateY(-4px) } }
