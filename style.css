@@ -122,3 +122,53 @@ h3{ font-size:14px; color:var(--text-dim) }
 }
 @keyframes slideIn{ from{ transform:translateY(-8px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
 @keyframes fadeOut{ to{ opacity:0; transform:translateY(-4px) } }
+/* === LOCKED FULLSCREEN LAYOUT === */
+* { box-sizing: border-box; }
+:root { --hud-h: 56px; }            /* JS will keep this in sync with actual HUD height */
+
+/* Pin the whole app to the viewport (no page scroll) */
+html, body { height: 100dvh; overflow: hidden; }
+#game { position: fixed; inset: 0; }
+
+/* Fixed HUD at the very top */
+#hud{
+  position: fixed; top: 0; left: 0; right: 0;
+  min-height: var(--hud-h);
+  display: flex; align-items: center; /* keep a single row look */
+  flex-wrap: wrap; /* can wrap on very narrow windows */
+  z-index: 10;
+}
+
+/* Scenes fill exactly under the HUD — no outer scrolling */
+.scene{
+  position: fixed;
+  top: var(--hud-h); left: 0; right: 0; bottom: 0;
+  padding-top: 0;             /* was padding under old layout */
+  overflow: hidden;           /* no scrollbars on the scene itself */
+}
+.scene.show{ display: block; }
+
+/* Title/HQ/Country/Final content area: center and scale to fit */
+.center{
+  max-width: 780px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  place-items: center;        /* vertical+horizontal center */
+  text-align: center;
+}
+
+/* Make large headings scale down on smaller screens so they fit without scrolling */
+h1{ font-size: clamp(18px, 3vw, 28px); }
+h2{ font-size: clamp(14px, 2.2vw, 18px); }
+h3{ font-size: clamp(12px, 1.8vw, 14px); }
+html { font-size: clamp(14px, 1.5vw, 18px); }
+
+/* Map canvas fills its scene fully (scene already accounts for HUD) */
+#mapScreen{ position: fixed; top: var(--hud-h); left: 0; right: 0; bottom: 0; }
+#mapCanvas{ width: 100%; height: 100%; }
+
+/* Keep the little overlay (message/buttons/legend) anchored inside map scene */
+#mapScreen > div[style*="position:absolute"]{ pointer-events: none; }
+#mapButtons .btn, #mapScreen .btn{ pointer-events: auto; } /* restore button clicks */
