@@ -24,7 +24,8 @@ let state = {
   isFlying:false, flightStart:0, flightDuration:0,
   planeX:0, planeY:0, flightFromX:0, flightFromY:0, flightToX:0, flightToY:0,
   flightCtrlX:0, flightCtrlY:0,
-  flightDestCountry:null, flightDestPlace:null
+  flightDestCountry:null, flightDestPlace:null,
+  clues:[], leads:[]
 };
 function saveState(){ localStorage.setItem("AndesAmazonsSave", JSON.stringify(state)); }
 function loadState(){ try{ const s=JSON.parse(localStorage.getItem("AndesAmazonsSave")||"{}"); Object.assign(state,s);}catch{} }
@@ -54,30 +55,25 @@ const hud = {
   xp:()=>document.getElementById('hudXP'),
   tp:()=>document.getElementById('hudTP'),
   visited:()=>document.getElementById('hudVisited'),
-  sound:()=>document.getElementById('hudSound')
+  sound:()=>document.getElementById('hudSound'),
+  journal:()=>document.getElementById('hudJournal'),
+  cluesBtn:()=>document.getElementById('hudClues')
 };
 function updateHUD(){
-  hud.case().textContent = state.currentCase ? `Case: ${getCase(state.currentCase).title}` : '';
+  const cse = state.currentCase ? getCase(state.currentCase) : null;
+  hud.case().textContent = cse ? `Case: ${cse.title}` : '';
   hud.student().textContent = state.studentName?`Student: ${state.studentName}`:'';
   hud.cls().textContent = state.className?`Class: ${state.className}`:'';
   hud.xp().textContent = `XP⭐ ${state.xp}`;
   hud.tp().textContent = `TP🚶 ${state.tp}`;
   hud.visited().textContent = `Visited📍 ${state.visited.length}/${DATA.countries.length}`;
   hud.sound().textContent = state.sound?'🔊':'🔇';
-  measureHud();   // <<< keep scenes pinned under the real HUD height
+  measureHud(); // keep scenes pinned below HUD
 }
 function toast(msg){
   const host=document.getElementById('toasts'); if(!host) return;
   const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
   host.appendChild(t); setTimeout(()=>t.remove(),2700);
-}
-/* === Measure HUD and lock scenes under it === */
-function measureHud(){
-  const hudEl = document.getElementById('hud');
-  if(!hudEl) return;
-  // Read actual pixel height and write to CSS var
-  const h = Math.ceil(hudEl.getBoundingClientRect().height);
-  document.documentElement.style.setProperty('--hud-h', h + 'px');
 }
 
 /* ===================== Audio: chiptune + sfx ===================== */
@@ -94,14 +90,8 @@ function playTone(freq=440, dur=0.12, type='square', gain=0.10){
   o.start(t); o.stop(t+dur+0.02);
 }
 function sfxClick(){ playTone(440,0.05,'square',0.08); }
-function sfxCorrect(){
-  playTone(880,0.07,'square',0.10);
-  setTimeout(()=>playTone(1320,0.08,'square',0.08), 60);
-}
-function sfxWrong(){
-  playTone(220,0.08,'square',0.10);
-  setTimeout(()=>playTone(180,0.10,'square',0.08), 70);
-}
+function sfxCorrect(){ playTone(880,0.07,'square',0.10); setTimeout(()=>playTone(1320,0.08,'square',0.08), 60); }
+function sfxWrong(){ playTone(220,0.08,'square',0.10); setTimeout(()=>playTone(180,0.10,'square',0.08), 70); }
 function sfxResolve(){
   playTone(660,0.10,'square',0.10);
   setTimeout(()=>playTone(990,0.12,'square',0.10), 90);
@@ -111,8 +101,7 @@ function startAmbience(){
   if(!state.sound || musicTimer) return;
   const bpm=112; const stepMs=(60000/bpm)/2; // 8th notes
   musicTimer=setInterval(()=>{
-    const root=220; // A3
-    const pattern=[0,7,12,7,10,7,12,7]; // A minor arpeggio
+    const root=220; const pattern=[0,7,12,7,10,7,12,7]; // A minor arpeggio
     const semi = pattern[musicStep % pattern.length];
     const f = root * Math.pow(2, semi/12);
     playTone(f, 0.09, (musicStep%4===0?'triangle':'square'), 0.06);
@@ -121,23 +110,49 @@ function startAmbience(){
 }
 function stopAmbience(){ if(musicTimer){ clearInterval(musicTimer); musicTimer=null; } }
 
+/* ===================== Layout helpers ===================== */
+function measureHud(){
+  const hudEl=document.getElementById('hud'); if(!hudEl) return;
+  const h=Math.ceil(hudEl.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--hud-h', h+'px');
+}
+
 /* ===================== Scenes ===================== */
 function showScene(id){
   document.querySelectorAll('.scene').forEach(s=>s.classList.remove('show'));
   document.getElementById(id).classList.add('show');
   updateHUD();
-  // gentle rule: title & map get ambience
   if(state.sound && (id==='titleScreen' || id==='mapScreen')) startAmbience(); else stopAmbience();
 }
 
-/* ===================== Data helpers ===================== */
+/* ===================== Data helpers & case helpers ===================== */
 function getCountry(id){ return DATA.countries.find(c=>c.id===id); }
 function getCase(id){ return DATA.cases.find(c=>c.id===id); }
-
-function setMapLoading(on){
-  const s = document.getElementById('mapScreen');
-  if(!s) return;
-  s.classList.toggle('loading', !!on);
+function activeCase(){ return state.currentCase ? getCase(state.currentCase) : null; }
+function haveRequiredClues(){
+  const cs = activeCase(); if(!cs || !cs.requiredClues) return true;
+  return cs.requiredClues.every(id=>state.clues.includes(id));
+}
+function computeLeads(){
+  const needed = new Set((activeCase()?.requiredClues)||[]);
+  const have = new Set(state.clues||[]);
+  const missing = [...needed].filter(id=>!have.has(id));
+  const leads = new Set();
+  DATA.countries.forEach(c=>{
+    (c.events||[]).forEach(e=>{
+      if(e.grantClue && missing.includes(e.grantClue)) leads.add(c.id);
+    });
+  });
+  state.leads=[...leads];
+}
+function addClue(id){
+  if(!id) return;
+  if(!state.clues.includes(id)){
+    state.clues.push(id);
+    saveState();
+    toast("🗂️ New clue collected!");
+    computeLeads();
+  }
 }
 
 /* ===================== Title & HQ ===================== */
@@ -150,12 +165,11 @@ function setupTitle(){
   }
   wrap.appendChild(btn('New Game', ()=>{
     localStorage.removeItem("AndesAmazonsSave");
-    state = {...state,
-      xp:0,tp:8,visited:[],answered:[],eventsSeen:[],
-      currentCase:null,finalAnswered:false,
-      locationCountry:null,lastPlaceId:null,
-      isFlying:false
-    };
+    state = { xp:0,tp:8,visited:[],answered:[],eventsSeen:[],currentCase:null,finalAnswered:false,
+              studentName:"",className:"",sound:true,locationCountry:null,lastPlaceId:null,
+              isFlying:false,flightStart:0,flightDuration:0,planeX:0,planeY:0,
+              flightFromX:0,flightFromY:0,flightToX:0,flightToY:0,flightCtrlX:0,flightCtrlY:0,
+              flightDestCountry:null,flightDestPlace:null, clues:[], leads:[] };
     saveState(); setupTitle();
   }));
   wrap.appendChild(btn('How to Play', ()=>{
@@ -170,15 +184,18 @@ function setupTitle(){
 function setupHQ(){
   document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
   const list=document.getElementById('caseList'); list.innerHTML='';
-  const c=DATA.cases[0];
-  const box=document.createElement('div'); box.style.textAlign='left';
-  box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
-  box.appendChild(btn('Play', ()=>{
-    state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
-    state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; saveState();
-    showScene('mapScreen'); enterMap();
-  }));
-  list.appendChild(box);
+  // show all cases (currently one)
+  DATA.cases.forEach(c=>{
+    const box=document.createElement('div'); box.style.textAlign='left';
+    box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
+    box.appendChild(btn('Play', ()=>{
+      state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
+      state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; state.clues=[]; state.leads=[];
+      computeLeads();
+      saveState(); showScene('mapScreen'); enterMap();
+    }));
+    list.appendChild(box);
+  });
 
   document.getElementById('studentName').value=state.studentName;
   document.getElementById('className').value=state.className;
@@ -200,11 +217,7 @@ let markers=[]; // {countryId, placeId, name, type, lat, lon, _x, _y}
 let hovered=null;
 let mapRAF=null;
 
-// Web-Mercator Y transform
-function mercY(latDeg){
-  const φ = latDeg * Math.PI/180;
-  return Math.log(Math.tan(Math.PI/4 + φ/2));
-}
+function mercY(latDeg){ const φ = latDeg * Math.PI/180; return Math.log(Math.tan(Math.PI/4 + φ/2)); }
 const mercYMin = mercY(bounds.latMin);
 const mercYMax = mercY(bounds.latMax);
 function toXY(lat, lon){
@@ -213,7 +226,7 @@ function toXY(lat, lon){
   return { x: nx * mapCanvas.width, y: ny * mapCanvas.height };
 }
 
-/* ===================== Sprites (runtime mini bitmaps) ===================== */
+/* ===================== Sprites ===================== */
 const SPRITES={};
 function makeSprite(draw){
   const c=document.createElement('canvas'); c.width=16; c.height=16;
@@ -221,7 +234,6 @@ function makeSprite(draw){
   g.clearRect(0,0,16,16); draw(g); return c;
 }
 function buildSprites(){
-  // Capital: pixel star
   SPRITES.capital = makeSprite(g=>{
     g.fillStyle='#FFD166'; g.strokeStyle='#0A1A30'; g.lineWidth=1;
     g.beginPath();
@@ -229,41 +241,28 @@ function buildSprites(){
     g.lineTo(13,15); g.lineTo(8,12); g.lineTo(3,15); g.lineTo(5,9.5);
     g.lineTo(1,6); g.lineTo(6,6); g.closePath(); g.fill(); g.stroke();
   });
-  // Heritage: stepped temple
   SPRITES.heritage = makeSprite(g=>{
     g.fillStyle='#4CC9F0'; g.strokeStyle='#0A1A30'; g.lineWidth=1;
-    g.fillRect(2,11,12,3);
-    g.fillRect(3,9,10,2);
-    g.fillRect(5,6,6,3);
-    g.fillRect(7,4,2,2);
-    g.strokeRect(2.5,10.5,11,4);
+    g.fillRect(2,11,12,3); g.fillRect(3,9,10,2); g.fillRect(5,6,6,3); g.fillRect(7,4,2,2); g.strokeRect(2.5,10.5,11,4);
   });
-  // Port: anchor-ish
   SPRITES.port = makeSprite(g=>{
     g.fillStyle='#38B000'; g.strokeStyle='#0A1A30';
-    g.fillRect(7,2,2,9);
-    g.beginPath(); g.arc(8,12,4,0,Math.PI,true); g.fill();
-    g.beginPath(); g.arc(8,3,2,0,Math.PI*2); g.fill();
-    g.strokeRect(6.5,2,3,9);
+    g.fillRect(7,2,2,9); g.beginPath(); g.arc(8,12,4,0,Math.PI,true); g.fill();
+    g.beginPath(); g.arc(8,3,2,0,Math.PI*2); g.fill(); g.strokeRect(6.5,2,3,9);
   });
-  // Amazon: leaf
   SPRITES.amazon = makeSprite(g=>{
     g.fillStyle='#8AC926'; g.strokeStyle='#0A1A30';
     g.beginPath(); g.moveTo(8,2); g.quadraticCurveTo(14,6,13,12);
-    g.quadraticCurveTo(8,15,8,15);
-    g.quadraticCurveTo(8,15,3,12); g.quadraticCurveTo(2,6,8,2); g.fill(); g.stroke();
-    g.strokeStyle='rgba(10,26,48,.6)'; g.beginPath(); g.moveTo(8,3); g.lineTo(8,14); g.stroke();
+    g.quadraticCurveTo(8,15,8,15); g.quadraticCurveTo(8,15,3,12); g.quadraticCurveTo(2,6,8,2);
+    g.fill(); g.stroke(); g.strokeStyle='rgba(10,26,48,.6)'; g.beginPath(); g.moveTo(8,3); g.lineTo(8,14); g.stroke();
   });
 }
 function drawCityIcon(ctx,x,y,kind,{visited,current}={}){
   const s = SPRITES[kind] || SPRITES.capital;
   const px=x-8, py=y-8;
-  // glow
   if(current){ ctx.save(); ctx.shadowColor='rgba(255,209,102,.55)'; ctx.shadowBlur=10; ctx.drawImage(s,px,py); ctx.restore(); }
   ctx.drawImage(s,px,py);
-  // visited ring
   if(visited){ ctx.strokeStyle='#67F28C'; ctx.lineWidth=1; ctx.strokeRect(px+.5,py+.5,15,15); }
-  // current highlight
   if(current){ ctx.strokeStyle='#FFD166'; ctx.lineWidth=1; ctx.strokeRect(px+.5,py+.5,15,15); }
 }
 
@@ -310,12 +309,10 @@ function generateTopoBitmap(){
     [9.5,-73.3],[9.6,-72.3]
   ];
 
-  x.fillStyle = landCol;
-  x.beginPath();
+  x.fillStyle = landCol; x.beginPath();
   COAST.forEach((ll,i)=>{ const p=toXYbmp(ll[0],ll[1]); if(i===0) x.moveTo(p.x,p.y); else x.lineTo(p.x,p.y); });
   x.closePath(); x.fill();
 
-  // Andes strokes
   const ANDES = [
     [9.0,-74.5],[7.0,-75.0],[5.0,-75.8],[3.0,-76.8],[1.0,-77.8],[-1.0,-78.6],[-3.0,-79.0],
     [-5.0,-78.8],[-7.0,-77.9],[-9.2,-77.0],[-11.5,-76.2],[-13.8,-75.2],[-16.0,-73.7],[-18.0,-71.9],
@@ -323,17 +320,11 @@ function generateTopoBitmap(){
     [-35.0,-70.6],[-37.0,-71.2],[-39.0,-71.8],[-41.0,-72.2],[-43.0,-72.5],[-45.0,-72.7],[-47.0,-72.8],
     [-49.0,-72.9],[-51.0,-72.5]
   ];
-  const strokePolyline = (pts, color, width, alpha=1.0) => {
-    x.save(); x.strokeStyle=color; x.globalAlpha=alpha; x.lineWidth=width; x.lineJoin='round'; x.lineCap='round';
-    x.beginPath();
-    pts.forEach(([la,lo],i)=>{ const p=toXYbmp(la,lo); if(i===0) x.moveTo(p.x,p.y); else x.lineTo(p.x,p.y); });
-    x.stroke(); x.restore();
-  };
+  const strokePolyline=(pts,color,width,alpha=1)=>{ x.save(); x.strokeStyle=color; x.globalAlpha=alpha; x.lineWidth=width; x.lineJoin='round'; x.lineCap='round'; x.beginPath(); pts.forEach(([la,lo],i)=>{ const p=toXYbmp(la,lo); if(i===0) x.moveTo(p.x,p.y); else x.lineTo(p.x,p.y); }); x.stroke(); x.restore(); };
   strokePolyline(ANDES,'#66B27A',64,0.25);
   strokePolyline(ANDES,'#458C5F',36,0.30);
   strokePolyline(ANDES,'#2B6140',18,0.35);
 
-  // Rivers
   const AMAZON = [
     [-11.5,-74.0],[-10.2,-72.5],[-9.0,-70.8],[-8.3,-69.5],[-7.6,-68.2],[-7.0,-67.0],
     [-6.3,-65.8],[-5.7,-64.6],[-5.0,-63.4],[-4.5,-62.6],[-3.9,-61.9],[-3.3,-61.2],[-3.1,-60.2],
@@ -353,7 +344,6 @@ function generateTopoBitmap(){
   strokePolyline(PARANA,'#4CC9F0',2,0.85);
   strokePolyline(ORINOCO,'#4CC9F0',2,0.85);
 
-  // Borders (simplified)
   const BORDERS = {
     'PE-BR': [[-10.8,-73.9],[-9.9,-72.8],[-9.0,-71.2],[-7.9,-70.1],[-7.1,-69.4],[-6.1,-68.9],[-5.2,-69.2],[-4.4,-69.6],[-4.2,-70.5]],
     'PE-CL': [[-18.3,-70.4],[-17.8,-70.0]],
@@ -364,20 +354,16 @@ function generateTopoBitmap(){
     'BR-PY': [[-22.0,-54.0],[-23.2,-54.2],[-24.3,-54.5],[-25.1,-54.7],[-25.5,-54.8],[-26.1,-55.1]],
     'AR-PY': [[-27.3,-58.3],[-26.3,-58.2],[-25.3,-57.9],[-24.3,-57.7],[-23.3,-57.6],[-22.5,-57.6]]
   };
-  const drawBorder = (key) => strokePolyline(BORDERS[key], '#0A1A30', 2, 0.55);
+  const drawBorder=(key)=>strokePolyline(BORDERS[key],'#0A1A30',2,0.55);
   Object.keys(BORDERS).forEach(drawBorder);
 
-  // Subtle land texturing
-  const img = x.getImageData(0,0,w,h);
+  const img=x.getImageData(0,0,w,h);
   for(let yy=0; yy<h; yy++){
     for(let xx=0; xx<w; xx++){
-      const i = (yy*w+xx)*4;
-      const r=img.data[i], g=img.data[i+1], b=img.data[i+2];
-      const isLand = g > b && g > r;
+      const i=(yy*w+xx)*4; const r=img.data[i], g=img.data[i+1], b=img.data[i+2];
+      const isLand = g>b && g>r;
       if(isLand && ((xx + 2*yy) % 7 === 0)){
-        img.data[i]   = Math.max(0, r-3);
-        img.data[i+1] = Math.max(0, g-2);
-        img.data[i+2] = Math.max(0, b-1);
+        img.data[i]=Math.max(0,r-3); img.data[i+1]=Math.max(0,g-2); img.data[i+2]=Math.max(0,b-1);
       }
     }
   }
@@ -386,6 +372,8 @@ function generateTopoBitmap(){
   baseMapImage = c;
   setMapLoading(false);
 }
+
+/* ===================== Flight visuals ===================== */
 function drawPlane(ctx,x,y,frame=0){
   const bw=14,bh=4;
   ctx.fillStyle='#FFD166'; ctx.strokeStyle='#0A1A30'; ctx.lineWidth=1;
@@ -417,7 +405,6 @@ function drawAnimatedPlane(){
   let x=state.planeX, y=state.planeY, frame=0, bob=0;
   if(state.isFlying){
     const now=performance.now(); const t=Math.min(1,(now-state.flightStart)/state.flightDuration);
-    // curve
     const cx=state.flightCtrlX, cy=state.flightCtrlY;
     x = qbez(state.flightFromX, cx, state.flightToX, t);
     y = qbez(state.flightFromY, cy, state.flightToY, t);
@@ -431,17 +418,17 @@ function drawAnimatedPlane(){
   }
   drawPlane(mapCtx, x, y+bob, frame);
 }
+
+/* ===================== Map render loop ===================== */
 function renderMap(){
   const cont=document.getElementById('mapScreen');
   const cw=cont.clientWidth||window.innerWidth, ch=cont.clientHeight||window.innerHeight-40;
   mapCanvas.width=cw; mapCanvas.height=ch; mapCtx.imageSmoothingEnabled=false;
 
   mapCtx.clearRect(0,0,cw,ch);
-  if (baseMapImage){
-    mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch);
-  }
+  if(baseMapImage){ mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch); }
 
-  // edges (country connections)
+  // allowed-edges
   mapCtx.strokeStyle='rgba(255,255,255,.18)'; mapCtx.lineWidth=1;
   DATA.edges.forEach(([a,b])=>{
     const A=getCountry(a), B=getCountry(b);
@@ -454,16 +441,30 @@ function renderMap(){
     const p=toXY(m.lat,m.lon); m._x=p.x; m._y=p.y;
     const visited = state.visited.includes(m.countryId);
     const current = (state.lastPlaceId===m.placeId);
-    const hover = (hovered && hovered.placeId===m.placeId);
-    drawCityIcon(mapCtx,m._x,m._y,m.type,{visited,current:current||hover});
+    drawCityIcon(mapCtx,m._x,m._y,m.type,{visited,current:current});
   });
 
+  // pulse ring on lead countries
+  if(state.leads && state.leads.length){
+    const t=(Date.now()%1200)/1200; const pulse=8 + Math.sin(t*2*Math.PI)*3;
+    mapCtx.save(); mapCtx.lineWidth=2; mapCtx.strokeStyle='rgba(255,209,102,.65)';
+    DATA.countries.forEach(c=>{
+      if(state.leads.includes(c.id)){
+        const p=toXY(c.lat,c.lon);
+        mapCtx.beginPath(); mapCtx.arc(p.x,p.y,pulse,0,Math.PI*2); mapCtx.stroke();
+      }
+    });
+    mapCtx.restore();
+  }
+
+  // plane position if idle
   if(!state.isFlying && state.lastPlaceId){
     const mk=markers.find(mm=>mm.placeId===state.lastPlaceId);
     if(mk){ state.planeX=mk._x; state.planeY=mk._y; }
   }
   drawAnimatedPlane();
 
+  // message & buttons
   const msg=document.getElementById('mapMsg');
   if(state.locationCountry && state.lastPlaceId){
     const c=getCountry(state.locationCountry);
@@ -472,18 +473,29 @@ function renderMap(){
   }else msg.textContent='Choose a starting city';
 
   const btns=document.getElementById('mapButtons'); btns.innerHTML='';
-  const cs = state.currentCase && getCase(state.currentCase);
-  if(cs && !state.finalAnswered && state.xp>=cs.winCondition.minXP && state.visited.length>=cs.winCondition.minVisited){
+  const cs = activeCase();
+  if(cs && !state.finalAnswered &&
+     state.xp>=cs.winCondition.minXP &&
+     state.visited.length>=cs.winCondition.minVisited &&
+     haveRequiredClues()){
     btns.appendChild(btn('Resolve Case', ()=>showFinal()));
+  }else{
+    btns.appendChild(btn('Journal', ()=>openJournal()));
   }
   btns.appendChild(btn('HQ', ()=>{ showScene('hqScreen'); setupHQ(); }));
 }
 function enterMap(){
-  setMapLoading(!baseMapImage);   // show only if map bitmap isn’t ready yet
+  setMapLoading(!baseMapImage);
   buildMarkers(); hovered=null;
   if(mapRAF) cancelAnimationFrame(mapRAF);
   const loop=()=>{ renderMap(); mapRAF=requestAnimationFrame(loop); };
   loop();
+}
+
+/* ===================== Loader scope ===================== */
+function setMapLoading(on){
+  const s=document.getElementById('mapScreen'); if(!s) return;
+  s.classList.toggle('loading', !!on);
 }
 
 /* ===================== Map Interaction ===================== */
@@ -529,11 +541,10 @@ function startFlight(target){
   state.flightFromX=from._x; state.flightFromY=from._y;
   state.flightToX=target._x; state.flightToY=target._y;
 
-  // Curved arc control point (perpendicular lift)
   const mx=(state.flightFromX+state.flightToX)/2, my=(state.flightFromY+state.flightToY)/2;
   let nx=state.flightToY - state.flightFromY, ny=-(state.flightToX - state.flightFromX);
   const len=Math.max(1, Math.hypot(nx,ny)); nx/=len; ny/=len;
-  const lift = 60; // tweak for drama
+  const lift = 60;
   state.flightCtrlX = mx + nx*lift; state.flightCtrlY = my + ny*lift;
 
   state.flightDestCountry=target.countryId; state.flightDestPlace=target.placeId;
@@ -547,6 +558,7 @@ function finishFlight(){
   state.planeX=state.flightToX; state.planeY=state.flightToY;
   saveState();
   showCountry(state.locationCountry);
+  computeLeads();
   if(Math.random()<0.4) maybeEvent(state.locationCountry);
 }
 
@@ -601,11 +613,8 @@ function answer(q, idx, elSel){
   if(elSel.dataset.done) return; elSel.dataset.done='y';
   const correct = idx===q.answer;
   const parent=elSel.parentNode;
-  if(correct){
-    state.xp+=2; elSel.classList.add('correct'); sfxCorrect(); toast('⭐ +2 XP!');
-  } else {
-    state.xp=Math.max(0,state.xp-1); elSel.classList.add('incorrect'); sfxWrong(); toast('−1 XP');
-  }
+  if(correct){ state.xp+=2; elSel.classList.add('correct'); sfxCorrect(); toast('⭐ +2 XP!'); }
+  else { state.xp=Math.max(0,state.xp-1); elSel.classList.add('incorrect'); sfxWrong(); toast('−1 XP'); }
   state.answered.push(q.id); saveState();
   parent.querySelectorAll('.choice').forEach(c=>c.style.pointerEvents='none');
   setTimeout(()=>{
@@ -619,12 +628,10 @@ function maybeEvent(countryId){
   const country=getCountry(countryId);
   if(!country.events || !country.events.length) return;
   const pool = country.events.filter(e=>!state.eventsSeen.includes(e.id));
-  const evt = (pool.length?pool:country.events)[Math.floor(Math.random()*country.events.length)];
+  const evt = (pool.length?pool:country.events)[Math.floor(Math.random()*(pool.length?pool.length:country.events.length))];
   state.eventsSeen.push(evt.id);
-  if(evt.effect && typeof evt.effect.tp==='number'){
-    state.tp=Math.max(0,state.tp+evt.effect.tp);
-    toast((evt.effect.tp>0?'+':'') + evt.effect.tp + ' TP');
-  }
+  if(evt.effect && typeof evt.effect.tp==='number'){ state.tp=Math.max(0,state.tp+evt.effect.tp); toast((evt.effect.tp>0?'+':'') + evt.effect.tp + ' TP'); }
+  if(evt.grantClue){ addClue(evt.grantClue); }
   saveState();
   const content=document.getElementById('countryContent');
   const block=document.createElement('div'); block.style.margin='8px 0';
@@ -655,36 +662,128 @@ function maybeEvent(countryId){
   }
 }
 
-/* ===================== Case Resolution ===================== */
-function showFinal(){
-  const cs=getCase(state.currentCase), fq=cs.winCondition.finalQuestion;
-  const el=document.getElementById('finalContent'); el.innerHTML='';
-  el.appendChild(Object.assign(document.createElement('h2'),{textContent:'Case Resolution'}));
-  el.appendChild(Object.assign(document.createElement('p'),{textContent:fq.prompt}));
-  fq.choices.forEach((t,i)=>{
-    const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
-    c.onclick=()=>{
-      if(c.dataset.done) return; c.dataset.done='y';
-      const ok=i===fq.answer;
-      if(ok){ state.xp+=2; c.classList.add('correct'); sfxResolve(); toast('⭐ Case solved! +2 XP'); }
-      else { state.xp=Math.max(0,state.xp-2); c.classList.add('incorrect'); sfxWrong(); toast('−2 XP'); }
-      saveState();
-      setTimeout(()=>{
-        el.appendChild(Object.assign(document.createElement('p'),{innerHTML:(ok?'You solved the case! ':'Not quite, but case closed.')+' '+fq.explain}));
-        state.finalAnswered=true; saveState();
-        const code=makeCode(state.studentName,state.className,state.xp,state.visited.length);
-        const cp=document.createElement('p'); cp.innerHTML=`Completion Code: <strong>${code}</strong>`; el.appendChild(cp);
-        el.appendChild(btn('Back to HQ', ()=>{ state.currentCase=null; saveState(); setupHQ(); showScene('hqScreen'); }));
-        el.appendChild(btn('Verify Code', ()=>openVerify()));
-      },250);
-    };
-    c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; const all=el.querySelectorAll('.choice'); if(idx>=0&&idx<all.length) all[idx].click(); } } };
-    el.appendChild(c);
+/* ===================== Journal & Clues ===================== */
+function openJournal(){
+  const cs=activeCase(); const el=document.getElementById('journalContent'); el.innerHTML='';
+  const head=document.createElement('div'); head.className='journal';
+  head.innerHTML = `
+    <h2>📓 Journal — ${cs?cs.title:'No Case'}</h2>
+    <div class="goal-row">
+      <span class="pill ${state.xp>= (cs?.winCondition.minXP||0) ? 'ok':''}">XP ⭐ ${state.xp}/${cs?.winCondition.minXP||0}</span>
+      <span class="pill ${state.visited.length>= (cs?.winCondition.minVisited||0) ? 'ok':''}">Visited 📍 ${state.visited.length}/${DATA.countries.length}</span>
+      <span class="pill ${haveRequiredClues() ? 'ok hint':''}">Evidence 🗂️ ${state.clues.length}/${(cs?.clues||[]).length}</span>
+    </div>
+  `;
+  el.appendChild(head);
+
+  if(cs && cs.clues){
+    const wrap=document.createElement('div'); wrap.className='clue-list';
+    cs.clues.forEach(cl=>{
+      const have=state.clues.includes(cl.id);
+      const d=document.createElement('div'); d.className='clue';
+      d.innerHTML = `<strong>${have?'✅':'⬜'} ${cl.title}</strong><br><span style="opacity:.9">${cl.text}</span>`;
+      wrap.appendChild(d);
+    });
+    el.appendChild(wrap);
+  }
+
+  computeLeads();
+  if(state.leads.length){
+    const leads=document.createElement('div'); leads.className='leads';
+    const names = state.leads.map(id=>getCountry(id).name).join(', ');
+    leads.innerHTML = `<div><span class="lead-dot"></span><em>Leads:</em> ${names}</div>`;
+    el.appendChild(leads);
+  }
+
+  el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
+  showScene('journalScreen');
+}
+function openClues(){
+  const cs=activeCase(); const el=document.getElementById('clueContent'); el.innerHTML='';
+  const h=document.createElement('h2'); h.textContent='🗂️ Collected Clues'; el.appendChild(h);
+  if(!state.clues.length){ el.appendChild(Object.assign(document.createElement('p'),{textContent:'No clues yet. Travel and watch for events!'})); }
+  const list=document.createElement('div'); list.className='clue-list';
+  (cs?.clues||[]).filter(c=>state.clues.includes(c.id)).forEach(cl=>{
+    const d=document.createElement('div'); d.className='clue';
+    d.innerHTML = `<strong>${cl.title}</strong><br><span style="opacity:.9">${cl.text}</span>`;
+    list.appendChild(d);
   });
-  showScene('finalScreen');
+  el.appendChild(list);
+  el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
+  showScene('clueScreen');
 }
 
-/* ===================== Verify ===================== */
+/* ===================== Case Resolution (Evidence step) ===================== */
+function showFinal(){
+  const cs=activeCase(), fq=cs.winCondition.finalQuestion;
+  const el=document.getElementById('finalContent'); el.innerHTML='';
+  if(cs.requiredClues && !haveRequiredClues()){
+    el.innerHTML = `<div class="evidence"><h2>Evidence Needed</h2>
+      <p>You need key clues before presenting your conclusion. Check the <strong>Journal</strong> for leads.</p></div>`;
+    el.appendChild(btn('Open Journal', ()=>openJournal()));
+    el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
+    showScene('finalScreen'); return;
+  }
+
+  const csClues = (cs.clues||[]).filter(c=>state.clues.includes(c.id));
+  const must = new Set(cs.requiredClues||[]);
+  const selected = new Set();
+  el.innerHTML = `<div class="evidence"><h2>Present Your Evidence</h2>
+    <p>Select the <em>three</em> clues that best support your conclusion.</p></div>`;
+  const list=document.createElement('div'); list.className='clue-list';
+  csClues.forEach(cl=>{
+    const d=document.createElement('div'); d.className='clue'; d.tabIndex=0; d.style.cursor='pointer';
+    d.innerHTML = `<strong>⬜ ${cl.title}</strong><br><span style="opacity:.9">${cl.text}</span>`;
+    const toggle=()=>{ 
+      if(selected.has(cl.id)){ selected.delete(cl.id); d.querySelector('strong').innerHTML = `⬜ ${cl.title}`; }
+      else{
+        if(selected.size>=3){ toast('Select only 3 clues.'); return; }
+        selected.add(cl.id); d.querySelector('strong').innerHTML = `✅ ${cl.title}`;
+      }
+    };
+    d.onclick=toggle; d.onkeydown=e=>{ if(e.key==='Enter'||e.key===' ') { e.preventDefault(); toggle(); } };
+    list.appendChild(d);
+  });
+  el.appendChild(list);
+
+  const proceed = btn('Confirm Evidence', ()=>{
+    if(selected.size!==3){ toast('Pick exactly 3 clues.'); return; }
+    const ok = [...selected].every(id=>must.has(id));
+    if(!ok){ toast('Those clues don’t fully support the conclusion.'); sfxWrong(); return; }
+    showFinalQuestion();
+  });
+  el.appendChild(proceed);
+  el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
+  showScene('finalScreen');
+
+  function showFinalQuestion(){
+    el.innerHTML=''; el.appendChild(Object.assign(document.createElement('h2'),{textContent:'Case Resolution'}));
+    el.appendChild(Object.assign(document.createElement('p'),{textContent:fq.prompt}));
+    fq.choices.forEach((t,i)=>{
+      const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
+      c.onclick=()=>{
+        if(c.dataset.done) return; c.dataset.done='y';
+        const ok=i===fq.answer;
+        if(ok){ state.xp+=2; c.classList.add('correct'); sfxResolve(); toast('⭐ Case solved! +2 XP'); }
+        else { state.xp=Math.max(0,state.xp-2); c.classList.add('incorrect'); sfxWrong(); toast('−2 XP'); }
+        saveState();
+        setTimeout(()=>{
+          el.appendChild(Object.assign(document.createElement('p'),{innerHTML:(ok?'You solved the case! ':'Not quite, but case closed.')+' '+fq.explain}));
+          state.finalAnswered=true; saveState();
+          const code=makeCode(state.studentName,state.className,state.xp,state.visited.length);
+          const cp=document.createElement('p'); cp.innerHTML=`Completion Code: <strong>${code}</strong>`; el.appendChild(cp);
+          el.appendChild(btn('Back to HQ', ()=>{ state.currentCase=null; saveState(); setupHQ(); showScene('hqScreen'); }));
+          el.appendChild(btn('Verify Code', ()=>openVerify()));
+        },250);
+      };
+      c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; const all=el.querySelectorAll('.choice'); if(idx>=0&&idx<all.length) all[idx].click(); } } };
+      el.appendChild(c);
+    });
+    showScene('finalScreen');
+  }
+}
+
+/* ===================== Verify Modal ===================== */
 function openVerify(){ document.getElementById('modalOverlay').classList.add('active'); document.getElementById('verifyResult').textContent=''; }
 function closeVerify(){ document.getElementById('modalOverlay').classList.remove('active'); }
 function checkVerify(){
@@ -715,15 +814,20 @@ function init(){
   generateDither();
   mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
   bindMapEvents();
-   loadState(); setupTitle(); updateHUD();
-  measureHud();                      // initial measurement
+  loadState(); setupTitle(); updateHUD(); measureHud();
   window.addEventListener('resize', measureHud);
+
+  // build visuals
+  setMapLoading(true);
   generateTopoBitmap(); buildMarkers(); buildSprites();
+  // HUD buttons (if present in HTML)
+  if(hud.journal()) hud.journal().onclick=()=>openJournal();
+  if(hud.cluesBtn()) hud.cluesBtn().onclick=()=>openClues();
 
   document.getElementById('modalClose').onclick=closeVerify;
   document.getElementById('verifyBtn').onclick=checkVerify;
   hud.sound().onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); (state.sound?startAmbience():stopAmbience()); };
-  // start ambience on boot if sound enabled
+
   if(state.sound) startAmbience();
 }
 window.onload=init;
