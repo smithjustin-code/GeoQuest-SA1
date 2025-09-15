@@ -51,6 +51,12 @@
 
     /* --------- Legend --------- */
     #legend{font-size:11px;opacity:.95}
+
+    /* --------- Loading overlay --------- */
+    #loading{
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:rgba(10,26,48,.85);z-index:999;font-size:14px;letter-spacing:.08em;
+    }
   </style>
 </head>
 <body>
@@ -64,6 +70,8 @@
     <span id="hudVisited"></span>
     <span id="hudSound" style="cursor:pointer" title="Toggle sound (M)"></span>
   </div>
+
+  <div id="loading">Loading map…</div>
 
   <!-- Title -->
   <div id="titleScreen" class="scene show">
@@ -408,44 +416,6 @@ function showScene(id){
 function getCountry(id){ return DATA.countries.find(c=>c.id===id); }
 function getCase(id){ return DATA.cases.find(c=>c.id===id); }
 
-/* ===================== Title & HQ ===================== */
-function setupTitle(){
-  const wrap=document.getElementById('titleButtons'); wrap.innerHTML='';
-  if(state.currentCase && !state.finalAnswered){
-    wrap.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
-  }else{
-    wrap.appendChild(btn('Start', ()=>{ showScene('hqScreen'); setupHQ(); }));
-  }
-  wrap.appendChild(btn('New Game', ()=>{ localStorage.removeItem("AndesAmazonsSave"); state = {...state, xp:0,tp:8,visited:[],answered:[],eventsSeen:[],currentCase:null,finalAnswered:false,locationCountry:null,lastPlaceId:null}; saveState(); setupTitle();}));
-  wrap.appendChild(btn('How to Play', ()=>{ const el=document.getElementById('howTo'); el.style.display = el.style.display==='none'?'block':'none'; }));
-  wrap.appendChild(btn(state.sound?'Sound Off':'Sound On', ()=>{ state.sound=!state.sound; saveState(); setupTitle(); }));
-}
-function setupHQ(){
-  document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
-  const list=document.getElementById('caseList'); list.innerHTML='';
-  // Only one case
-  const c=DATA.cases[0];
-  const box=document.createElement('div'); box.style.textAlign='left';
-  box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
-  box.appendChild(btn('Play', ()=>{
-    state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
-    state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; saveState();
-    showScene('mapScreen'); enterMap();
-  }));
-  list.appendChild(box);
-
-  document.getElementById('studentName').value=state.studentName;
-  document.getElementById('className').value=state.className;
-
-  const hqBtns=document.getElementById('hqButtons'); hqBtns.innerHTML='';
-  hqBtns.appendChild(btn('Save & Continue', ()=>{
-    state.studentName=document.getElementById('studentName').value.trim();
-    state.className=document.getElementById('className').value.trim();
-    saveState(); beep(560,.05);
-  }));
-  hqBtns.appendChild(btn('Back to Title', ()=>{ showScene('titleScreen'); setupTitle(); }));
-}
-
 /* ===================== Map & Projection ===================== */
 const bounds = { latMin:-56, latMax:13, lonMin:-82, lonMax:-34 };
 let mapCanvas, mapCtx;
@@ -453,9 +423,8 @@ let baseMapImage;
 let markers=[]; // {countryId, placeId, name, type, lat, lon, _x, _y}
 let hovered=null;
 let mapRAF=null;
+
 // --- Projection helpers (Mercator-style Y, linear X) ---
-const bounds = { latMin:-56, latMax:13, lonMin:-82, lonMax:-34 };
-// Web-Mercator Y transform
 function mercY(latDeg){
   const φ = latDeg * Math.PI/180;
   return Math.log(Math.tan(Math.PI/4 + φ/2));
@@ -501,7 +470,6 @@ function generateTopoBitmap(){
 
   // 2) Coastline polygon (~100 points). Coarse but recognizably South America.
   const COAST = [
-    // Venezuela/Guyana/Suriname/French Guiana → bulge of NE Brazil
     [10.9,-73.0],[11.2,-71.5],[11.3,-70.2],[11.0,-68.7],[10.6,-67.2],[10.2,-65.8],[9.9,-64.6],[9.6,-63.6],
     [9.2,-62.5],[8.8,-61.5],[8.4,-60.6],[7.9,-59.8],[7.3,-59.0],[6.7,-58.3],[6.2,-57.6],[5.8,-56.8],[5.4,-56.1],
     [5.1,-55.2],[5.0,-54.2],[4.7,-53.3],[4.2,-52.5],[3.0,-51.6],[2.2,-50.9],[1.4,-50.1],[0.7,-49.4],[0.1,-48.8],
@@ -564,37 +532,28 @@ function generateTopoBitmap(){
   strokePolyline(ORINOCO,'#4CC9F0',2,0.85);
 
   // 5) Country borders (simplified, for included countries only)
-  //    Lines lie approximately along real borders (classroom-accurate, low-vertex).
   const BORDERS = {
-    // Peru–Brazil (west Amazon arc)
     'PE-BR': [
       [-10.8,-73.9],[-9.9,-72.8],[-9.0,-71.2],[-7.9,-70.1],[-7.1,-69.4],[-6.1,-68.9],[-5.2,-69.2],[-4.4,-69.6],[-4.2,-70.5]
     ],
-    // Peru–Chile (short N Chile)
     'PE-CL': [
       [-18.3,-70.4],[-17.8,-70.0]
     ],
-    // Brazil–Argentina (Misiones, Iguazú/Uruguay rivers)
     'BR-AR': [
       [-25.7,-54.6],[-26.7,-54.6],[-27.2,-55.3],[-27.8,-55.9],[-28.3,-56.3],[-29.0,-56.6]
     ],
-    // Argentina–Chile (long Andean divide, simplified)
     'AR-CL': [
       [-22.0,-68.2],[-24.0,-68.9],[-26.5,-69.1],[-28.5,-69.3],[-30.8,-69.6],[-33.0,-70.0],[-35.0,-70.6],[-37.0,-71.2],[-39.0,-71.8],[-41.0,-72.2],[-43.0,-72.5],[-45.0,-72.7],[-47.0,-72.8],[-49.0,-72.9]
     ],
-    // Argentina–Uruguay (Uruguay River → Río de la Plata)
     'AR-UY': [
       [-30.9,-57.9],[-31.7,-57.8],[-32.5,-58.0],[-33.2,-58.2],[-34.0,-58.3],[-34.7,-58.4]
     ],
-    // Brazil–Uruguay (northeast Uruguay border)
     'BR-UY': [
       [-30.9,-57.0],[-31.8,-56.3],[-32.7,-55.6],[-33.4,-54.9],[-33.8,-54.2]
     ],
-    // Brazil–Paraguay
     'BR-PY': [
       [-22.0,-54.0],[-23.2,-54.2],[-24.3,-54.5],[-25.1,-54.7],[-25.5,-54.8],[-26.1,-55.1]
     ],
-    // Argentina–Paraguay (Paraguay River stretch)
     'AR-PY': [
       [-27.3,-58.3],[-26.3,-58.2],[-25.3,-57.9],[-24.3,-57.7],[-23.3,-57.6],[-22.5,-57.6]
     ]
@@ -667,7 +626,9 @@ function renderMap(){
 
   // base
   mapCtx.clearRect(0,0,cw,ch);
-  mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch);
+  if (baseMapImage){
+    mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch);
+  }
 
   // edges
   mapCtx.strokeStyle='rgba(255,255,255,.18)'; mapCtx.lineWidth=1;
@@ -920,13 +881,46 @@ document.addEventListener('keydown', e=>{
 function init(){
   generateDither();
   mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
-  generateTopoBitmap(); buildMarkers(); bindMapEvents();
+  bindMapEvents();
   loadState(); setupTitle(); updateHUD();
+
+  // Build the bitmap map then hide the loading overlay
+  generateTopoBitmap(); buildMarkers();
+  requestAnimationFrame(()=>{ const L=document.getElementById('loading'); if(L) L.style.display='none'; });
+
   document.getElementById('modalClose').onclick=closeVerify;
   document.getElementById('verifyBtn').onclick=checkVerify;
   hud.sound().onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); };
 }
 window.onload=init;
+
+/* ---- Small improvement: ensure New Game resets flight state ---- */
+(function patchNewGameReset(){
+  const origSetupTitle = setupTitle;
+  setupTitle = function(){
+    const wrap=document.getElementById('titleButtons');
+    origSetupTitle();
+    // replace New Game handler to ensure isFlying=false
+    if (wrap){
+      const buttons=[...wrap.querySelectorAll('.btn')];
+      const ng = buttons.find(b=>/New Game/i.test(b.textContent||''));
+      if(ng){
+        ng.onclick = ()=>{
+          localStorage.removeItem("AndesAmazonsSave");
+          state = {...state,
+            xp:0, tp:8, visited:[], answered:[], eventsSeen:[],
+            currentCase:null, finalAnswered:false,
+            locationCountry:null, lastPlaceId:null,
+            isFlying:false
+          };
+          saveState(); setupTitle();
+          beep(560,.05);
+        };
+      }
+    }
+  };
+})();
 </script>
 </body>
 </html>
+
