@@ -222,7 +222,18 @@
       <div style="position:absolute; bottom:10px; left:10px;">
         <div id="mapMsg" style="margin-bottom:8px;"></div>
         <div id="mapButtons"></div>
+        <!-- Legend overlay shows icon meanings -->
+        <div id="mapLegend" style="font-size:10px; margin-top:4px; color:#E6EDF7;">
+          Legend: <span style="color:#FFD166;">✪</span> Capital&nbsp;
+          <span style="color:#4CC9F0;">■</span> City&nbsp;
+          <span style="color:#FFD166;">✈</span> Plane&nbsp;
+          <span style="color:rgba(255,255,255,0.6);">—</span> Route
+        </div>
       </div>
+      <!-- Tooltip for city names -->
+      <div id="mapTooltip" style="display:none; position:absolute; pointer-events:none;
+        padding:4px 6px; font-size:11px; color:#E6EDF7; border:1px solid #4CC9F0;
+        background-image:url(); z-index:15;"></div>
     </div>
     <!-- Country Screen -->
     <div id="countryScreen" class="scene">
@@ -283,8 +294,13 @@
               }
             }
           ],
-          lat:-12.0464, lon:-77.0428
-          ,brochure:"Journey through Peru’s diverse landscapes: wander Lima’s colonial plazas, marvel at ancient Inca ruins in Cusco and Machu Picchu, and explore the towering Andes and lush Amazon Basin. Sample ceviche and vibrant Andean crafts on your adventure."
+          lat:-12.0464, lon:-77.0428,
+          places:[
+            {id:"lima", name:"Lima", lat:-12.0464, lon:-77.0428, type:"capital"},
+            {id:"cusco", name:"Cusco", lat:-13.5320, lon:-71.9675, type:"heritage"},
+            {id:"iquitos", name:"Iquitos", lat:-3.7437, lon:-73.2516, type:"amazon"}
+          ],
+          brochure:"Journey through Peru’s diverse landscapes: wander Lima’s colonial plazas, marvel at ancient Inca ruins in Cusco and Machu Picchu, and explore the towering Andes and lush Amazon Basin. Sample ceviche and vibrant Andean crafts on your adventure."
         },
         {
           id:"argentina", name:"Argentina", capital:"Buenos Aires",
@@ -313,8 +329,13 @@
               text:"Strong winds force a slower route."
             }
           ],
-          lat:-34.6037, lon:-58.3816
-          ,brochure:"Dance through Buenos Aires’ tango halls, ride with gauchos across the fertile Pampas, sip mate beneath Patagonian peaks, and stand at the edge of thunderous Iguaçu Falls. Argentina’s cities and landscapes pulse with music and adventure."
+          lat:-34.6037, lon:-58.3816,
+          places:[
+            {id:"buenos_aires", name:"Buenos Aires", lat:-34.6037, lon:-58.3816, type:"capital"},
+            {id:"cordoba", name:"Córdoba", lat:-31.4201, lon:-64.1888, type:"heritage"},
+            {id:"ushuaia", name:"Ushuaia", lat:-54.8019, lon:-68.3030, type:"port"}
+          ],
+          brochure:"Dance through Buenos Aires’ tango halls, ride with gauchos across the fertile Pampas, sip mate beneath Patagonian peaks, and stand at the edge of thunderous Iguaçu Falls. Argentina’s cities and landscapes pulse with music and adventure."
         },
         {
           id:"brazil", name:"Brazil", capital:"Brasília",
@@ -343,8 +364,13 @@
               text:"Seasonal floods slow boat travel through a tributary."
             }
           ],
-          lat:-15.7939, lon:-47.8828
-          ,brochure:"From sun-soaked Rio beaches to Brasília’s modernist skyline, Brazil dazzles: immerse yourself in Amazon rainforest biodiversity, dance through Carnival’s rhythm-filled streets, and feel the spray of Iguaçu Falls – all while enjoying samba and tropical flavors."
+          lat:-15.7939, lon:-47.8828,
+          places:[
+            {id:"brasilia", name:"Brasília", lat:-15.7939, lon:-47.8828, type:"capital"},
+            {id:"rio", name:"Rio de Janeiro", lat:-22.9068, lon:-43.1729, type:"port"},
+            {id:"manaus", name:"Manaus", lat:-3.1190, lon:-60.0217, type:"amazon"}
+          ],
+          brochure:"From sun-soaked Rio beaches to Brasília’s modernist skyline, Brazil dazzles: immerse yourself in Amazon rainforest biodiversity, dance through Carnival’s rhythm-filled streets, and feel the spray of Iguaçu Falls – all while enjoying samba and tropical flavors."
         },
         {
           id:"chile", name:"Chile", capital:"Santiago",
@@ -373,8 +399,13 @@
               text:"Cool fog gives you a respite; you plan ahead (+1 TP)."
             }
           ],
-          lat:-33.4489, lon:-70.6693
-          ,brochure:"Traverse Chile’s extreme length: gaze at the starry skies of the Atacama Desert, savor seafood in colorful Valparaíso, hike glaciers in Patagonia, and toast adventure with a glass of Carménère in Santiago’s vineyards."
+          lat:-33.4489, lon:-70.6693,
+          places:[
+            {id:"santiago", name:"Santiago", lat:-33.4489, lon:-70.6693, type:"capital"},
+            {id:"valparaiso", name:"Valparaíso", lat:-33.0472, lon:-71.6127, type:"port"},
+            {id:"punta_arenas", name:"Punta Arenas", lat:-53.1638, lon:-70.9171, type:"heritage"}
+          ],
+          brochure:"Traverse Chile’s extreme length: gaze at the starry skies of the Atacama Desert, savor seafood in colorful Valparaíso, hike glaciers in Patagonia, and toast adventure with a glass of Carménère in Santiago’s vineyards."
         }
         ,
         // Additional country: Uruguay
@@ -402,6 +433,10 @@
           ],
           events:[],
           lat:-34.9011, lon:-56.1645,
+          places:[
+            {id:"montevideo", name:"Montevideo", lat:-34.9011, lon:-56.1645, type:"capital"},
+            {id:"colonia", name:"Colonia del Sacramento", lat:-34.4716, lon:-57.8440, type:"heritage"}
+          ],
           brochure:"Stroll Montevideo's historic port, unwind on sunny beaches, and discover pastoral pampas and colonial charm."
         },
         // Additional country: Paraguay
@@ -429,6 +464,10 @@
           ],
           events:[],
           lat:-25.2637, lon:-57.5759,
+          places:[
+            {id:"asuncion", name:"Asunción", lat:-25.2637, lon:-57.5759, type:"capital"},
+            {id:"ciudad_del_este", name:"Ciudad del Este", lat:-25.5167, lon:-54.6167, type:"port"}
+          ],
           brochure:"Step into Paraguay's bilingual culture; visit Asunción's vibrant markets and the lush Chaco; enjoy tereré and traditional music."
         }
       ],
@@ -493,7 +532,22 @@
       answered: [], // answered question ids
       eventsSeen: [], // event ids seen
       currentCase: null,
-      location: null,
+      location: null, // alias for current country
+      locationCountry: null, // current country id (for place travel)
+      lastPlaceId: null, // last visited place id
+      isFlying: false, // plane flight flag
+      flightStart: 0,
+      flightDuration: 0,
+      planeX: 0,
+      planeY: 0,
+      planeTargetX: 0,
+      planeTargetY: 0,
+      flightFromX: 0,
+      flightFromY: 0,
+      flightToX: 0,
+      flightToY: 0,
+      flightDestCountry: null,
+      flightDestPlace: null,
       studentName: '',
       className: '',
       sound: true,
@@ -580,6 +634,9 @@
       // Add margins
       latMin -= 5; latMax += 5;
       lonMin -= 5; lonMax += 5;
+      // Override bounds to fixed South America extents for realistic alignment
+      latMin = -56; latMax = 13;
+      lonMin = -82; lonMax = -34;
       mapBounds = {latMin, latMax, lonMin, lonMax};
     }
     function latLonToXY(lat, lon){
@@ -589,87 +646,267 @@
       return {x, y};
     }
 
-    /* Draw a simple pixel-art propeller plane at (x,y) on the map context */
-    function drawPlane(ctx, x, y){
-      // Define plane dimensions
+    /* Draw a simple pixel-art propeller plane at (x,y) on the map context.
+       An optional frame parameter controls propeller orientation (0–2).
+       Frame 0 draws a plus (+), frame 1 draws an X, frame 2 draws a vertical bar.
+    */
+    function drawPlane(ctx, x, y, frame){
+      if(frame === undefined) frame = 0;
+      // Define plane body dimensions
       const bodyW = 14;
       const bodyH = 4;
-      // body color and outline
+      // Body and wings colors
       ctx.fillStyle = '#FFD166';
       ctx.strokeStyle = '#0A1A30';
       ctx.lineWidth = 1;
-      // Body
+      // Main fuselage
       ctx.fillRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
-      // Wings
+      // Wings across middle
       ctx.fillRect(x - bodyW/2 - 2, y - 1, bodyW + 4, 2);
-      // Tail
+      // Tail fin
       ctx.fillRect(x - bodyW/2 + 2, y - bodyH/2 - 3, 3, 3);
-      // Nose
+      // Nose cone as triangle
       ctx.beginPath();
       ctx.moveTo(x + bodyW/2, y - bodyH/2);
       ctx.lineTo(x + bodyW/2 + 3, y);
       ctx.lineTo(x + bodyW/2, y + bodyH/2);
       ctx.closePath();
       ctx.fill();
-      // Propeller (simple cross)
+      // Propeller drawing based on frame
       ctx.strokeStyle = '#E6EDF7';
       ctx.beginPath();
-      ctx.moveTo(x + bodyW/2 + 3, y);
-      ctx.lineTo(x + bodyW/2 + 7, y);
-      ctx.moveTo(x + bodyW/2 + 5, y - 2);
-      ctx.lineTo(x + bodyW/2 + 5, y + 2);
+      const propX = x + bodyW/2 + 5;
+      const propY = y;
+      if(frame % 3 === 0){
+        // plus shape (horizontal and vertical)
+        ctx.moveTo(propX - 2, propY);
+        ctx.lineTo(propX + 2, propY);
+        ctx.moveTo(propX, propY - 2);
+        ctx.lineTo(propX, propY + 2);
+      } else if(frame % 3 === 1){
+        // X shape (diagonal)
+        ctx.moveTo(propX - 2, propY - 2);
+        ctx.lineTo(propX + 2, propY + 2);
+        ctx.moveTo(propX - 2, propY + 2);
+        ctx.lineTo(propX + 2, propY - 2);
+      } else {
+        // vertical only (|)
+        ctx.moveTo(propX, propY - 3);
+        ctx.lineTo(propX, propY + 3);
+      }
       ctx.stroke();
-      // Outline around plane
+      // Outline the fuselage for contrast
       ctx.strokeStyle = '#0A1A30';
       ctx.strokeRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
     }
 
-    /* Generate background map with noise/gradient */
+    /* Draw a city icon at (x,y) depending on place type. Icons are 16×16 pixel retro sprites.
+       kind: "capital", "heritage", "port", "amazon" or other. Visited/current status influences color.
+       We use simple geometric shapes drawn with fillRect for a chunky retro look. */
+    function drawCityIcon(ctx, x, y, kind, options){
+      const opt = options || {};
+      const visited = opt.visited;
+      const current = opt.current;
+      // base colors by kind
+      let baseColor;
+      switch(kind){
+        case 'capital': baseColor = '#FFD166'; break; // golden
+        case 'heritage': baseColor = '#4CC9F0'; break; // cyan
+        case 'port': baseColor = '#38B000'; break; // green
+        case 'amazon': baseColor = '#8AC926'; break; // jungle green
+        default: baseColor = '#4CC9F0';
+      }
+      // override colors for status
+      if(visited) baseColor = '#38B000';
+      if(current) baseColor = '#FFD166';
+      const px = x - 8;
+      const py = y - 8;
+      ctx.fillStyle = baseColor;
+      // Clear behind sprite for crisp edges
+      ctx.clearRect(px, py, 16, 16);
+      // Draw shape based on type
+      if(kind === 'capital'){
+        // plus/star shape
+        ctx.fillRect(px + 6, py + 0, 4, 4);
+        ctx.fillRect(px + 6, py + 12, 4, 4);
+        ctx.fillRect(px + 0, py + 6, 4, 4);
+        ctx.fillRect(px + 12, py + 6, 4, 4);
+        ctx.fillRect(px + 6, py + 6, 4, 4);
+      } else if(kind === 'heritage'){
+        // pyramid/mountain: three stacked rows decreasing
+        ctx.fillRect(px + 4, py + 8, 8, 4);
+        ctx.fillRect(px + 2, py + 4, 12, 4);
+        ctx.fillRect(px + 0, py + 0, 16, 4);
+      } else if(kind === 'port'){
+        // anchor-like: vertical line and crossbar
+        ctx.fillRect(px + 6, py + 0, 4, 12);
+        ctx.fillRect(px + 2, py + 8, 12, 4);
+        ctx.fillRect(px + 6, py + 12, 4, 4);
+      } else if(kind === 'amazon'){
+        // tree: trunk and canopy
+        ctx.fillRect(px + 6, py + 8, 4, 8);
+        ctx.fillRect(px + 4, py + 4, 8, 4);
+        ctx.fillRect(px + 2, py + 0, 12, 4);
+      } else {
+        // default diamond
+        ctx.beginPath();
+        ctx.moveTo(x, y - 6);
+        ctx.lineTo(x + 6, y);
+        ctx.lineTo(x, y + 6);
+        ctx.lineTo(x - 6, y);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // outline for current
+      if(current){
+        ctx.strokeStyle = '#0A1A30';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px + 0.5, py + 0.5, 15, 15);
+      }
+    }
+
+    /* Render a procedural postcard canvas for a place and country. Returns a canvas element. */
+    function renderPostcard(place, country){
+      const w = 160;
+      const h = 100;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // background gradient based on place type
+      let gradStart, gradEnd;
+      switch(place.type){
+        case 'capital': gradStart = '#112240'; gradEnd = '#3A5BA0'; break;
+        case 'heritage': gradStart = '#2B2147'; gradEnd = '#6B4F92'; break;
+        case 'port': gradStart = '#0C2E4F'; gradEnd = '#1E5F99'; break;
+        case 'amazon': gradStart = '#123D2A'; gradEnd = '#2E7D32'; break;
+        default: gradStart = '#0D2C54'; gradEnd = '#4CC9F0';
+      }
+      const grad = ctx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0, gradStart);
+      grad.addColorStop(1, gradEnd);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,w,h);
+      // draw silhouettes based on type
+      ctx.fillStyle = 'rgba(10,26,48,0.8)';
+      ctx.strokeStyle = 'rgba(10,26,48,0.9)';
+      if(place.type === 'heritage'){
+        // mountains: three triangles
+        drawMountain(ctx, 20, h-20, 40, 30);
+        drawMountain(ctx, 60, h-15, 50, 25);
+        drawMountain(ctx, 110, h-18, 35, 22);
+      } else if(place.type === 'port'){
+        // skyline: rectangles of varying heights
+        drawBuilding(ctx, 20, h-20, 12, 20);
+        drawBuilding(ctx, 40, h-25, 10, 25);
+        drawBuilding(ctx, 60, h-18, 8, 18);
+        drawBuilding(ctx, 78, h-22, 14, 22);
+        drawBuilding(ctx, 98, h-16, 10, 16);
+      } else if(place.type === 'amazon'){
+        // river and trees
+        ctx.fillRect(0, h-25, w, 8);
+        drawTree(ctx, 30, h-35);
+        drawTree(ctx, 70, h-32);
+        drawTree(ctx, 110, h-38);
+      } else {
+        // capital or default: city skyline
+        drawBuilding(ctx, 20, h-20, 14, 20);
+        drawBuilding(ctx, 40, h-25, 10, 25);
+        drawBuilding(ctx, 60, h-18, 8, 18);
+        drawBuilding(ctx, 78, h-22, 12, 22);
+        drawBuilding(ctx, 96, h-16, 12, 16);
+      }
+      // stamp box with country code
+      ctx.fillStyle = '#0A1A30';
+      ctx.fillRect(w-42, 6, 36, 22);
+      ctx.strokeStyle = '#4CC9F0';
+      ctx.strokeRect(w-42, 6, 36, 22);
+      ctx.fillStyle = '#E6EDF7';
+      ctx.font = 'bold 10px monospace';
+      const code = country.name.slice(0,2).toUpperCase();
+      ctx.fillText(code, w-34, 21);
+      return canvas;
+    }
+    // helpers for postcard drawing
+    function drawMountain(ctx, x, baseY, width, height){
+      ctx.beginPath();
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x + width/2, baseY - height);
+      ctx.lineTo(x + width, baseY);
+      ctx.closePath();
+      ctx.fill();
+    }
+    function drawBuilding(ctx, x, topY, width, height){
+      ctx.fillRect(x, topY, width, height);
+    }
+    function drawTree(ctx, x, baseY){
+      // trunk
+      ctx.fillRect(x-2, baseY, 4, 10);
+      // canopy
+      ctx.beginPath();
+      ctx.arc(x, baseY - 2, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    /* Generate a retro bitmap topographic map for South America */
     let baseMapImage;
-    function generateBaseMap(){
+    function generateTopoBitmap(){
       /*
-       * Generate a richer pixel map with deterministic noise to provide more visual interest.
-       * A simple sine-based noise function introduces variation without external libraries.
+       * Generate a simplified retro map for South America.
+       * Draw a filled landmass polygon based on approximate coastline coordinates
+       * and fill surrounding ocean with deep blue. A slight diagonal highlight
+       * gives a vintage feel reminiscent of old atlases.
        */
       const w = 320;
       const h = 340;
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       const ctx = c.getContext('2d');
-      const imgd = ctx.createImageData(w,h);
-      // deterministic noise helper
-      function noise(x,y){
-        const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return n - Math.floor(n);
+      // fill ocean
+      ctx.fillStyle = '#0D2C54';
+      ctx.fillRect(0,0,w,h);
+      // South America outline (approximate lat/lon)
+      const outline = [
+        {lat: 12, lon: -60},   // northern Venezuela
+        {lat: 5, lon: -59},    // Guyana region
+        {lat: 5, lon: -34},    // NE Brazil coast
+        {lat: -15, lon: -35},  // eastern Brazil mid
+        {lat: -34, lon: -53},  // Uruguay coast
+        {lat: -38, lon: -58},  // Buenos Aires area
+        {lat: -55, lon: -70},  // southern tip near Tierra del Fuego
+        {lat: -40, lon: -72},  // Patagonia west
+        {lat: -10, lon: -72},  // Peru west
+        {lat: 2, lon: -80}     // Ecuador coast
+      ];
+      // conversion using fixed bounds same as computeBounds
+      const latMin = -56, latMax = 13, lonMin = -82, lonMax = -34;
+      function toXY(lat, lon){
+        const x = (lon - lonMin) / (lonMax - lonMin) * w;
+        const y = (latMax - lat) / (latMax - latMin) * h;
+        return {x,y};
       }
+      // draw land polygon
+      ctx.fillStyle = '#2E8540';
+      ctx.beginPath();
+      outline.forEach((pt, i) => {
+        const {x, y} = toXY(pt.lat, pt.lon);
+        if(i === 0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      // add a diagonal highlight for mountain feel
+      const imgd = ctx.getImageData(0,0,w,h);
       for(let y=0; y<h; y++){
         for(let x=0; x<w; x++){
           const idx = (y*w + x)*4;
-          const t = y / h;
-          let r,g,b;
-          const landLine = 0.55;
-          if(t > landLine){
-            // land: greens with subtle variation
-            const n = noise(x*0.08, y*0.08);
-            r = 50 + n*40;
-            g = 100 + n*60;
-            b = 50 + n*30;
-          } else {
-            // ocean: blues with subtle variation
-            const n = noise(x*0.08+100, y*0.08+100);
-            r = 15 + n*20;
-            g = 50 + n*40;
-            b = 100 + n*60;
-          }
-          // simple height accent: lighten towards top-left to simulate Andes
-          const heightFactor = Math.max(0, 1 - (x + y) / (w * 0.7));
-          r += heightFactor * 20;
-          g += heightFactor * 20;
-          b += heightFactor * 10;
-          imgd.data[idx]   = Math.min(255, r);
-          imgd.data[idx+1] = Math.min(255, g);
-          imgd.data[idx+2] = Math.min(255, b);
-          imgd.data[idx+3] = 255;
+          const fx = x / w;
+          const fy = y / h;
+          // highlight stronger near northwest to hint Andes
+          const factor = Math.max(0, 0.6 - (fx + fy) * 0.5);
+          imgd.data[idx]   = Math.min(255, imgd.data[idx] + factor*60);
+          imgd.data[idx+1] = Math.min(255, imgd.data[idx+1] + factor*60);
+          imgd.data[idx+2] = Math.min(255, imgd.data[idx+2] + factor*30);
         }
       }
       ctx.putImageData(imgd,0,0);
@@ -704,7 +941,7 @@
       container.innerHTML = '';
       // Start or Continue button
       if(state.currentCase && !state.finalAnswered){
-        const btnCont = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+        const btnCont = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
         container.appendChild(btnCont);
       } else {
         const btnStart = createButton('Start', () => {
@@ -752,10 +989,27 @@
           state.answered = [];
           state.eventsSeen = [];
           state.location = null;
+          state.locationCountry = null;
+          state.lastPlaceId = null;
           state.finalAnswered = false;
+          state.isFlying = false;
+          // Reset flight variables and plane coordinates
+          state.flightStart = 0;
+          state.flightDuration = 0;
+          state.planeX = 0;
+          state.planeY = 0;
+          state.planeTargetX = 0;
+          state.planeTargetY = 0;
+          state.flightFromX = 0;
+          state.flightFromY = 0;
+          state.flightToX = 0;
+          state.flightToY = 0;
+          state.flightDestCountry = null;
+          state.flightDestPlace = null;
           saveState();
           showScene('mapScreen');
-          renderMap();
+          rebuildMarkers();
+          startMapLoop();
         });
         div.appendChild(btn);
         caseList.appendChild(div);
@@ -807,6 +1061,21 @@
         eventsSeen: [],
         currentCase: null,
         location: null,
+        locationCountry: null,
+        lastPlaceId: null,
+        isFlying: false,
+        flightStart: 0,
+        flightDuration: 0,
+        planeX: 0,
+        planeY: 0,
+        planeTargetX: 0,
+        planeTargetY: 0,
+        flightFromX: 0,
+        flightFromY: 0,
+        flightToX: 0,
+        flightToY: 0,
+        flightDestCountry: null,
+        flightDestPlace: null,
         studentName: '',
         className: '',
         sound: state.sound,
@@ -819,15 +1088,56 @@
     }
 
     /* Map rendering and interaction */
+    let placeMarkers = []; // array of {countryId, placeId, x, y, type}
+    let hoveredMarker = null;
+    let mapAnimationId;
+
+    // Flag to ensure map events are attached only once
+    let mapEventsAttached = false;
+
+    /* Attach mousemove, mouseout and click handlers to the map canvas once */
+    function setupMapEvents(){
+      if(mapEventsAttached) return;
+      // ensure mapCanvas is defined
+      if(!mapCanvas){ mapCanvas = document.getElementById('mapCanvas'); mapCtx = mapCanvas.getContext('2d'); }
+      mapCanvas.addEventListener('mousemove', handleMapMouseMove);
+      mapCanvas.addEventListener('mouseout', handleMapMouseOut);
+      mapCanvas.addEventListener('click', handleMapClick);
+      mapEventsAttached = true;
+    }
+
+    function rebuildMarkers(){
+      placeMarkers = [];
+      DATA.countries.forEach(country => {
+        if(country.places){
+          country.places.forEach(pl => {
+            const {x, y} = latLonToXY(pl.lat, pl.lon);
+            placeMarkers.push({countryId: country.id, placeId: pl.id, x, y, type: pl.type, name: pl.name});
+          });
+        } else {
+          // fallback: single marker at country capital
+          const {x,y} = latLonToXY(country.lat, country.lon);
+          placeMarkers.push({countryId: country.id, placeId: country.id+'_capital', x, y, type:'capital', name: country.capital});
+        }
+      });
+    }
     function renderMap(){
       if(!mapCanvas){ mapCanvas = document.getElementById('mapCanvas'); mapCtx = mapCanvas.getContext('2d'); }
-      mapCanvas.width = mapCanvas.clientWidth;
-      mapCanvas.height = mapCanvas.clientHeight;
+      // ensure canvas dimensions based on parent container; fall back to window
+      const container = mapCanvas.parentElement;
+      let cw = container && container.clientWidth ? container.clientWidth : mapCanvas.clientWidth;
+      let ch = container && container.clientHeight ? container.clientHeight : mapCanvas.clientHeight;
+      // Fallback to window dimensions if layout not ready (0 size)
+      if(!cw || cw <= 0) cw = window.innerWidth;
+      if(!ch || ch <= 0) ch = window.innerHeight - 80;
+      mapCanvas.width = cw;
+      mapCanvas.height = ch;
       mapCtx.imageSmoothingEnabled = false;
+      // draw base bitmap
       mapCtx.clearRect(0,0,mapCanvas.width,mapCanvas.height);
       mapCtx.drawImage(baseMapImage, 0, 0, baseMapImage.width, baseMapImage.height, 0, 0, mapCanvas.width, mapCanvas.height);
-      // draw edges
-      mapCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+      // draw edges between countries
+      mapCtx.strokeStyle = 'rgba(255,255,255,0.15)';
       mapCtx.lineWidth = 1;
       DATA.edges.forEach(([a,b]) => {
         const A = getCountryById(a);
@@ -839,68 +1149,27 @@
         mapCtx.lineTo(pB.x, pB.y);
         mapCtx.stroke();
       });
-      // draw markers
-      DATA.countries.forEach(c => {
-        const {x, y} = latLonToXY(c.lat, c.lon);
-        let size = 8;
-        let color;
-        const isCurrent = state.location === c.id;
-        if(isCurrent){
-          // highlight current location with distinct color, but do not draw star; plane will be drawn separately
-          color = '#FFD166';
-          size = 10;
-        } else if(state.visited.includes(c.id)){
-          color = '#38B000';
-        } else {
-          color = '#4CC9F0';
-        }
-        mapCtx.fillStyle = color;
-        // draw a diamond marker
-        mapCtx.beginPath();
-        mapCtx.moveTo(x, y - size/2);
-        mapCtx.lineTo(x + size/2, y);
-        mapCtx.lineTo(x, y + size/2);
-        mapCtx.lineTo(x - size/2, y);
-        mapCtx.closePath();
-        mapCtx.fill();
-        // outline for contrast
-        mapCtx.strokeStyle = '#0A1A30';
-        mapCtx.lineWidth = 1;
-        mapCtx.stroke();
+      // draw city markers
+      placeMarkers.forEach(mk => {
+        const visited = state.visited.includes(mk.countryId);
+        const current = (state.lastPlaceId === mk.placeId);
+        const isHovered = (hoveredMarker && hoveredMarker.placeId === mk.placeId);
+        // for hover effect, we might lighten or border; we pass status to drawCityIcon
+        drawCityIcon(mapCtx, mk.x, mk.y, mk.type, {visited: visited, current: current || isHovered});
       });
-      // draw player plane over current location
-      if(state.location){
-        const curr = getCountryById(state.location);
-        const {x, y} = latLonToXY(curr.lat, curr.lon);
-        drawPlane(mapCtx, x, y);
-      }
-      // handle click
-      mapCanvas.onclick = (evt) => {
-        const rect = mapCanvas.getBoundingClientRect();
-        const mx = evt.clientX - rect.left;
-        const my = evt.clientY - rect.top;
-        // find nearest country marker to click; pick the one with smallest distance within large threshold
-        let clicked = null;
-        let minDist = Infinity;
-        DATA.countries.forEach(c => {
-          const {x, y} = latLonToXY(c.lat, c.lon);
-          const dx = mx - x;
-          const dy = my - y;
-          const d2 = dx*dx + dy*dy;
-          if(d2 < minDist){
-            minDist = d2;
-            clicked = c.id;
-          }
-        });
-        // Only click if within a very large area to prevent misclick on edges
-        const maxThreshold = (mapCanvas.width + mapCanvas.height) * 0.25; // quarter of perimeter squared approx
-        if(minDist > maxThreshold*maxThreshold) clicked = null;
-        if(clicked){ travelTo(clicked); }
-      };
-      // update bottom controls
+      // draw plane
+      drawAnimatedPlane();
+      // update legend and message
       const msgDiv = document.getElementById('mapMsg');
       const btnsDiv = document.getElementById('mapButtons');
-      msgDiv.textContent = state.location ? `Current: ${getCountryById(state.location).name}` : 'Select your starting country';
+      if(state.locationCountry && state.lastPlaceId){
+        const country = getCountryById(state.locationCountry);
+        const place = placeMarkers.find(p=>p.placeId===state.lastPlaceId);
+        msgDiv.textContent = `Current: ${country.name} • ${place ? place.name : ''}`;
+      } else {
+        msgDiv.textContent = 'Choose a starting city';
+      }
+      // buttons: HQ and Resolve
       btnsDiv.innerHTML = '';
       if(state.currentCase){
         const caseData = getCaseById(state.currentCase);
@@ -909,8 +1178,158 @@
           btnsDiv.appendChild(btn);
         }
       }
-      const back = createButton('HQ', () => { showScene('hqScreen'); setupHQ(); });
-      btnsDiv.appendChild(back);
+      const backBtn = createButton('HQ', () => { showScene('hqScreen'); setupHQ(); });
+      btnsDiv.appendChild(backBtn);
+    }
+    function drawAnimatedPlane(){
+      if(!mapCtx) return;
+      let px = state.planeX;
+      let py = state.planeY;
+      // when idle and not flying, bob plane
+      let bob = 0;
+      let propFrame = 0;
+      if(!state.isFlying){
+        bob = Math.sin(Date.now()/250) * 2;
+        propFrame = Math.floor((Date.now()/100) % 3);
+      } else {
+        // during flight update position based on interpolation
+        const now = performance.now();
+        const t = Math.min(1, (now - state.flightStart)/state.flightDuration);
+        px = state.planeX = state.flightFromX + (state.flightToX - state.flightFromX) * t;
+        py = state.planeY = state.flightFromY + (state.flightToY - state.flightFromY) * t;
+        propFrame = Math.floor(((now - state.flightStart)/80) % 3);
+        if(t >= 1){
+          finishFlight();
+        }
+      }
+      drawPlane(mapCtx, px, py + bob, propFrame);
+    }
+    // handle mouse move for tooltip
+    function handleMapMouseMove(evt){
+      const rect = mapCanvas.getBoundingClientRect();
+      const mx = evt.clientX - rect.left;
+      const my = evt.clientY - rect.top;
+      // find nearest marker
+      let nearest = null;
+      let nearestDist = 999999;
+      placeMarkers.forEach(mk => {
+        const dx = mx - mk.x;
+        const dy = my - mk.y;
+        const d2 = dx*dx + dy*dy;
+        if(d2 < nearestDist){ nearestDist = d2; nearest = mk; }
+      });
+      // threshold for hover (scaled by marker size ~16)
+      const threshold = 16 * (mapCanvas.width / 400); // scale threshold with size
+      if(nearest && nearestDist < threshold * threshold){
+        hoveredMarker = nearest;
+        showTooltip(nearest, mx, my);
+      } else {
+        hoveredMarker = null;
+        hideTooltip();
+      }
+    }
+    function handleMapMouseOut(){
+      hoveredMarker = null;
+      hideTooltip();
+    }
+    function handleMapClick(evt){
+      if(state.isFlying) return;
+      const rect = mapCanvas.getBoundingClientRect();
+      const mx = evt.clientX - rect.left;
+      const my = evt.clientY - rect.top;
+      // find clicked marker using same threshold as hover
+      let clicked = null;
+      let dist = 999999;
+      placeMarkers.forEach(mk => {
+        const dx = mx - mk.x;
+        const dy = my - mk.y;
+        const d2 = dx*dx + dy*dy;
+        if(d2 < dist){ dist = d2; clicked = mk; }
+      });
+      const threshold = 16 * (mapCanvas.width / 400);
+      if(clicked && dist < threshold*threshold){
+        startFlight(clicked);
+      }
+    }
+    function showTooltip(marker, mx, my){
+      const tip = document.getElementById('mapTooltip');
+      tip.style.display = 'block';
+      tip.textContent = `${marker.name} • ${getCountryById(marker.countryId).name}`;
+      tip.style.left = (mx + 10) + 'px';
+      tip.style.top = (my + 10) + 'px';
+      tip.style.backgroundImage = `url(${ditherDataUrl})`;
+    }
+    function hideTooltip(){
+      const tip = document.getElementById('mapTooltip');
+      tip.style.display = 'none';
+    }
+    function startFlight(marker){
+      const destCountryId = marker.countryId;
+      const destPlaceId = marker.placeId;
+      // if this is the first move, no cost and no adjacency check
+      if(state.locationCountry){
+        // check adjacency
+        const allowed = DATA.edges.some(([a,b]) => (a===state.locationCountry && b===destCountryId) || (b===state.locationCountry && a===destCountryId));
+        if(!allowed){ alert('You cannot travel directly there.'); return; }
+        if(state.tp <= 0){ alert('No Travel Points!'); return; }
+        state.tp -= 1;
+      }
+      // set flight path
+      state.isFlying = true;
+      state.flightStart = performance.now();
+      state.flightDuration = 700 + Math.random()*200;
+      // set from positions: if we already have plane coords use them else compute from current place/country
+      let fromX, fromY;
+      if(state.locationCountry && state.lastPlaceId){
+        const fromMarker = placeMarkers.find(mk => mk.placeId === state.lastPlaceId);
+        if(fromMarker){ fromX = fromMarker.x; fromY = fromMarker.y; }
+        else {
+          // fallback to country centroid
+          const c = getCountryById(state.locationCountry);
+          const p = latLonToXY(c.lat, c.lon);
+          fromX = p.x; fromY = p.y;
+        }
+      } else {
+        // initial start: plane starts offscreen; place at dest start
+        fromX = marker.x;
+        fromY = marker.y;
+      }
+      state.flightFromX = fromX;
+      state.flightFromY = fromY;
+      state.flightToX = marker.x;
+      state.flightToY = marker.y;
+      // update destination for finalization
+      state.flightDestCountry = destCountryId;
+      state.flightDestPlace = destPlaceId;
+      // update visited countries list now (so HUD updates during flight)
+      if(!state.visited.includes(destCountryId)) state.visited.push(destCountryId);
+      saveState();
+    }
+    function finishFlight(){
+      state.isFlying = false;
+      // update location and place
+      state.locationCountry = state.flightDestCountry;
+      state.location = state.flightDestCountry; // maintain compatibility
+      state.lastPlaceId = state.flightDestPlace;
+      state.planeX = state.flightToX;
+      state.planeY = state.flightToY;
+      // after arrival, maybe event and show country screen
+      const countryId = state.locationCountry;
+      // random event on travel
+      if(Math.random() < 0.4) maybeEvent(countryId);
+      saveState();
+      showCountry(countryId);
+    }
+    // start animation loop
+    function startMapLoop(){
+      if(mapAnimationId) cancelAnimationFrame(mapAnimationId);
+      // attach event handlers once when map loop begins
+      setupMapEvents();
+      function loop(){
+        renderMap();
+        mapAnimationId = requestAnimationFrame(loop);
+      }
+      loop();
     }
 
     /* Travel to a country */
@@ -929,20 +1348,31 @@
     }
 
     /* Country screen display */
-    function showCountry(id){
-      const country = getCountryById(id);
+    function showCountry(countryId){
+      const country = getCountryById(countryId);
       const contentDiv = document.getElementById('countryContent');
       contentDiv.innerHTML = '';
+      // Determine current place
+      let place = null;
+      if(state.lastPlaceId){
+        place = placeMarkers.find(p => p.placeId === state.lastPlaceId);
+      }
+      // draw postcard if place exists
+      if(place){
+        const card = renderPostcard(place, country);
+        contentDiv.appendChild(card);
+      }
+      // Title with country and city name
       const title = document.createElement('h2');
-      title.textContent = `${country.name} (${country.capital})`;
+      title.textContent = place ? `${country.name} • ${place.name}` : `${country.name}`;
       contentDiv.appendChild(title);
+      // NPC greeting
       const npcName = country.npcs[Math.floor(Math.random()*country.npcs.length)];
       const npcDiv = document.createElement('div');
       npcDiv.className = 'npc';
       npcDiv.textContent = `${npcName}:`;
       contentDiv.appendChild(npcDiv);
-      // show event message if triggered (maybeEvent appended before)
-      // Determine question
+      // Determine question or fact
       const remainingQs = country.questions.filter(q => !state.answered.includes(q.id));
       if(remainingQs.length > 0){
         const q = remainingQs[Math.floor(Math.random()*remainingQs.length)];
@@ -970,7 +1400,7 @@
         const p = document.createElement('p');
         p.textContent = fact;
         contentDiv.appendChild(p);
-        const okBtn = createButton('Back to Map', () => { showScene('mapScreen'); renderMap(); });
+        const okBtn = createButton('Back to Map', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
         contentDiv.appendChild(okBtn);
       }
       // Always show travel brochure for this location if available
@@ -997,7 +1427,7 @@
         explain.style.fontStyle = 'italic';
         explain.textContent = question.explain;
         element.parentNode.appendChild(explain);
-        const okBtn = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+        const okBtn = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
         element.parentNode.appendChild(okBtn);
       }, 300);
       const siblings = element.parentNode.querySelectorAll('.choice');
@@ -1058,7 +1488,7 @@
             ex.style.fontStyle = 'italic';
             ex.textContent = qcObj.explain;
             contentDiv.appendChild(ex);
-            const cont = createButton('Continue', () => { showScene('mapScreen'); renderMap(); });
+            const cont = createButton('Continue', () => { showScene('mapScreen'); rebuildMarkers(); startMapLoop(); });
             contentDiv.appendChild(cont);
           }, 300);
           const sibs = clickedEl.parentNode.querySelectorAll('.choice');
@@ -1149,7 +1579,7 @@
     /* Initialize everything */
     function init(){
       generateDither();
-      generateBaseMap();
+      generateTopoBitmap();
       computeBounds();
       loadState();
       setupTitleScreen();
