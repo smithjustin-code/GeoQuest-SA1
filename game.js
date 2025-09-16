@@ -68,7 +68,7 @@ function updateHUD(){
   hud.tp().textContent = `TP🚶 ${state.tp}`;
   hud.visited().textContent = `Visited📍 ${state.visited.length}/${DATA.countries.length}`;
   hud.sound().textContent = state.sound?'🔊':'🔇';
-  measureHud(); // keep scenes pinned below HUD
+  measureHud();
 }
 function toast(msg){
   const host=document.getElementById('toasts'); if(!host) return;
@@ -76,7 +76,7 @@ function toast(msg){
   host.appendChild(t); setTimeout(()=>t.remove(),2700);
 }
 
-/* ===================== Audio: chiptune + sfx ===================== */
+/* ===================== Audio ===================== */
 let audioCtx, musicTimer=null, musicStep=0;
 function getAudio(){ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
 function playTone(freq=440, dur=0.12, type='square', gain=0.10){
@@ -99,9 +99,9 @@ function sfxResolve(){
 }
 function startAmbience(){
   if(!state.sound || musicTimer) return;
-  const bpm=112; const stepMs=(60000/bpm)/2; // 8th notes
+  const bpm=112; const stepMs=(60000/bpm)/2;
   musicTimer=setInterval(()=>{
-    const root=220; const pattern=[0,7,12,7,10,7,12,7]; // A minor arpeggio
+    const root=220; const pattern=[0,7,12,7,10,7,12,7];
     const semi = pattern[musicStep % pattern.length];
     const f = root * Math.pow(2, semi/12);
     playTone(f, 0.09, (musicStep%4===0?'triangle':'square'), 0.06);
@@ -120,7 +120,8 @@ function measureHud(){
 /* ===================== Scenes ===================== */
 function showScene(id){
   document.querySelectorAll('.scene').forEach(s=>s.classList.remove('show'));
-  document.getElementById(id).classList.add('show');
+  const el = document.getElementById(id);
+  if(el) el.classList.add('show');
   updateHUD();
   if(state.sound && (id==='titleScreen' || id==='mapScreen')) startAmbience(); else stopAmbience();
 }
@@ -157,7 +158,15 @@ function addClue(id){
 
 /* ===================== Title & HQ ===================== */
 function setupTitle(){
-  const wrap=document.getElementById('titleButtons'); wrap.innerHTML='';
+  let wrap = document.getElementById('titleButtons');
+  if(!wrap){
+    const container = document.querySelector('#titleScreen .center') || document.getElementById('titleScreen');
+    wrap = document.createElement('div');
+    wrap.id = 'titleButtons';
+    if(container) container.appendChild(wrap);
+  }
+  wrap.innerHTML='';
+
   if(state.currentCase && !state.finalAnswered){
     wrap.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
   }else{
@@ -172,19 +181,18 @@ function setupTitle(){
               flightDestCountry:null,flightDestPlace:null, clues:[], leads:[] };
     saveState(); setupTitle();
   }));
-  wrap.appendChild(btn('How to Play', ()=>{
-    const el=document.getElementById('howTo');
-    el.style.display = el.style.display==='none'?'block':'none';
-  }));
   wrap.appendChild(btn(state.sound?'Sound Off':'Sound On', ()=>{
     state.sound=!state.sound; saveState(); setupTitle();
     if(state.sound) startAmbience(); else stopAmbience();
+  }));
+  wrap.appendChild(btn('How to Play', ()=>{
+    const el=document.getElementById('howTo');
+    if(el) el.style.display = el.style.display==='none'?'block':'none';
   }));
 }
 function setupHQ(){
   document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
   const list=document.getElementById('caseList'); list.innerHTML='';
-  // show all cases (currently one)
   DATA.cases.forEach(c=>{
     const box=document.createElement('div'); box.style.textAlign='left';
     box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
@@ -428,7 +436,7 @@ function renderMap(){
   mapCtx.clearRect(0,0,cw,ch);
   if(baseMapImage){ mapCtx.drawImage(baseMapImage,0,0,baseMapImage.width,baseMapImage.height,0,0,cw,ch); }
 
-  // allowed-edges
+  // edges
   mapCtx.strokeStyle='rgba(255,255,255,.18)'; mapCtx.lineWidth=1;
   DATA.edges.forEach(([a,b])=>{
     const A=getCountry(a), B=getCountry(b);
@@ -441,10 +449,10 @@ function renderMap(){
     const p=toXY(m.lat,m.lon); m._x=p.x; m._y=p.y;
     const visited = state.visited.includes(m.countryId);
     const current = (state.lastPlaceId===m.placeId);
-    drawCityIcon(mapCtx,m._x,m._y,m.type,{visited,current:current});
+    drawCityIcon(mapCtx,m._x,m._y,m.type,{visited,current});
   });
 
-  // pulse ring on lead countries
+  // leads pulse
   if(state.leads && state.leads.length){
     const t=(Date.now()%1200)/1200; const pulse=8 + Math.sin(t*2*Math.PI)*3;
     mapCtx.save(); mapCtx.lineWidth=2; mapCtx.strokeStyle='rgba(255,209,102,.65)';
@@ -457,7 +465,7 @@ function renderMap(){
     mapCtx.restore();
   }
 
-  // plane position if idle
+  // plane
   if(!state.isFlying && state.lastPlaceId){
     const mk=markers.find(mm=>mm.placeId===state.lastPlaceId);
     if(mk){ state.planeX=mk._x; state.planeY=mk._y; }
@@ -663,7 +671,18 @@ function maybeEvent(countryId){
 }
 
 /* ===================== Journal & Clues ===================== */
+function ensureScene(id, innerId){
+  let s=document.getElementById(id);
+  if(!s){
+    const game=document.getElementById('game');
+    s=document.createElement('div'); s.id=id; s.className='scene';
+    const inner=document.createElement('div'); inner.className='center'; inner.id=innerId;
+    s.appendChild(inner); game.appendChild(s);
+  }
+  return s;
+}
 function openJournal(){
+  ensureScene('journalScreen','journalContent');
   const cs=activeCase(); const el=document.getElementById('journalContent'); el.innerHTML='';
   const head=document.createElement('div'); head.className='journal';
   head.innerHTML = `
@@ -699,6 +718,7 @@ function openJournal(){
   showScene('journalScreen');
 }
 function openClues(){
+  ensureScene('clueScreen','clueContent');
   const cs=activeCase(); const el=document.getElementById('clueContent'); el.innerHTML='';
   const h=document.createElement('h2'); h.textContent='🗂️ Collected Clues'; el.appendChild(h);
   if(!state.clues.length){ el.appendChild(Object.assign(document.createElement('p'),{textContent:'No clues yet. Travel and watch for events!'})); }
@@ -709,91 +729,58 @@ function openClues(){
     list.appendChild(d);
   });
   el.appendChild(list);
+  el.appendChild(btn('Back to Journal', ()=>openJournal()));
   el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
   showScene('clueScreen');
 }
 
-/* ===================== Case Resolution (Evidence step) ===================== */
+/* ===================== Case Resolution ===================== */
 function showFinal(){
-  const cs=activeCase(), fq=cs.winCondition.finalQuestion;
+  const cs=activeCase(); if(!cs) return;
+  const fq=cs.winCondition.finalQuestion;
   const el=document.getElementById('finalContent'); el.innerHTML='';
-  if(cs.requiredClues && !haveRequiredClues()){
-    el.innerHTML = `<div class="evidence"><h2>Evidence Needed</h2>
-      <p>You need key clues before presenting your conclusion. Check the <strong>Journal</strong> for leads.</p></div>`;
-    el.appendChild(btn('Open Journal', ()=>openJournal()));
-    el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
-    showScene('finalScreen'); return;
+  el.appendChild(Object.assign(document.createElement('h2'),{textContent:'Case Resolution — City of the Condor'}));
+  if(cs.requiredClues && cs.requiredClues.length){
+    const haveAll = haveRequiredClues();
+    const note=document.createElement('p'); note.innerHTML = haveAll ? 'You have the necessary evidence.' : 'You are missing some evidence, but you may still attempt the final question.';
+    el.appendChild(note);
   }
-
-  const csClues = (cs.clues||[]).filter(c=>state.clues.includes(c.id));
-  const must = new Set(cs.requiredClues||[]);
-  const selected = new Set();
-  el.innerHTML = `<div class="evidence"><h2>Present Your Evidence</h2>
-    <p>Select the <em>three</em> clues that best support your conclusion.</p></div>`;
-  const list=document.createElement('div'); list.className='clue-list';
-  csClues.forEach(cl=>{
-    const d=document.createElement('div'); d.className='clue'; d.tabIndex=0; d.style.cursor='pointer';
-    d.innerHTML = `<strong>⬜ ${cl.title}</strong><br><span style="opacity:.9">${cl.text}</span>`;
-    const toggle=()=>{ 
-      if(selected.has(cl.id)){ selected.delete(cl.id); d.querySelector('strong').innerHTML = `⬜ ${cl.title}`; }
-      else{
-        if(selected.size>=3){ toast('Select only 3 clues.'); return; }
-        selected.add(cl.id); d.querySelector('strong').innerHTML = `✅ ${cl.title}`;
-      }
+  el.appendChild(Object.assign(document.createElement('p'),{textContent:fq.prompt}));
+  fq.choices.forEach((t,i)=>{
+    const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
+    c.onclick=()=>{
+      if(c.dataset.done) return; c.dataset.done='y';
+      const ok=i===fq.answer;
+      if(ok){ state.xp+=2; c.classList.add('correct'); sfxResolve(); toast('⭐ +2 XP!'); }
+      else { state.xp=Math.max(0,state.xp-2); c.classList.add('incorrect'); sfxWrong(); toast('−2 XP'); }
+      saveState();
+      setTimeout(()=>{
+        el.appendChild(Object.assign(document.createElement('p'),{innerHTML:(ok?'You solved the case! ':'Not quite, but case closed.')+' '+fq.explain}));
+        state.finalAnswered=true; saveState();
+        const code=makeCode(state.studentName,state.className,state.xp,state.visited.length);
+        const cp=document.createElement('p'); cp.innerHTML=`Completion Code: <strong>${code}</strong>`; el.appendChild(cp);
+        el.appendChild(btn('Back to HQ', ()=>{ state.currentCase=null; saveState(); setupHQ(); showScene('hqScreen'); }));
+        el.appendChild(btn('Verify Code', ()=>openVerify()));
+      },250);
     };
-    d.onclick=toggle; d.onkeydown=e=>{ if(e.key==='Enter'||e.key===' ') { e.preventDefault(); toggle(); } };
-    list.appendChild(d);
+    c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; const all=el.querySelectorAll('.choice'); if(idx>=0&&idx<all.length) all[idx].click(); } } };
+    el.appendChild(c);
   });
-  el.appendChild(list);
-
-  const proceed = btn('Confirm Evidence', ()=>{
-    if(selected.size!==3){ toast('Pick exactly 3 clues.'); return; }
-    const ok = [...selected].every(id=>must.has(id));
-    if(!ok){ toast('Those clues don’t fully support the conclusion.'); sfxWrong(); return; }
-    showFinalQuestion();
-  });
-  el.appendChild(proceed);
-  el.appendChild(btn('Back to Map', ()=>{ showScene('mapScreen'); enterMap(); }));
   showScene('finalScreen');
-
-  function showFinalQuestion(){
-    el.innerHTML=''; el.appendChild(Object.assign(document.createElement('h2'),{textContent:'Case Resolution'}));
-    el.appendChild(Object.assign(document.createElement('p'),{textContent:fq.prompt}));
-    fq.choices.forEach((t,i)=>{
-      const c=document.createElement('div'); c.className='choice'; c.textContent=`${i+1}. ${t}`; c.style.backgroundImage=`url(${ditherDataUrl})`; c.tabIndex=0;
-      c.onclick=()=>{
-        if(c.dataset.done) return; c.dataset.done='y';
-        const ok=i===fq.answer;
-        if(ok){ state.xp+=2; c.classList.add('correct'); sfxResolve(); toast('⭐ Case solved! +2 XP'); }
-        else { state.xp=Math.max(0,state.xp-2); c.classList.add('incorrect'); sfxWrong(); toast('−2 XP'); }
-        saveState();
-        setTimeout(()=>{
-          el.appendChild(Object.assign(document.createElement('p'),{innerHTML:(ok?'You solved the case! ':'Not quite, but case closed.')+' '+fq.explain}));
-          state.finalAnswered=true; saveState();
-          const code=makeCode(state.studentName,state.className,state.xp,state.visited.length);
-          const cp=document.createElement('p'); cp.innerHTML=`Completion Code: <strong>${code}</strong>`; el.appendChild(cp);
-          el.appendChild(btn('Back to HQ', ()=>{ state.currentCase=null; saveState(); setupHQ(); showScene('hqScreen'); }));
-          el.appendChild(btn('Verify Code', ()=>openVerify()));
-        },250);
-      };
-      c.onkeydown=e=>{ if(['1','2','3','4','Enter',' '].includes(e.key)){ if(e.key==='Enter'||e.key===' '){c.click();} else{ const idx=+e.key-1; const all=el.querySelectorAll('.choice'); if(idx>=0&&idx<all.length) all[idx].click(); } } };
-      el.appendChild(c);
-    });
-    showScene('finalScreen');
-  }
 }
 
-/* ===================== Verify Modal ===================== */
-function openVerify(){ document.getElementById('modalOverlay').classList.add('active'); document.getElementById('verifyResult').textContent=''; }
-function closeVerify(){ document.getElementById('modalOverlay').classList.remove('active'); }
+/* ===================== Verify ===================== */
+function openVerify(){ const o=document.getElementById('modalOverlay'); if(o) o.classList.add('active'); const r=document.getElementById('verifyResult'); if(r) r.textContent=''; }
+function closeVerify(){ const o=document.getElementById('modalOverlay'); if(o) o.classList.remove('active'); }
 function checkVerify(){
-  const name=document.getElementById('verifyName').value.trim();
-  const cls=document.getElementById('verifyClass').value.trim();
-  const xp=parseInt(document.getElementById('verifyXP').value)||0;
-  const vis=parseInt(document.getElementById('verifyVisited').value)||0;
-  const code=document.getElementById('verifyCode').value.trim().toUpperCase();
+  const name=(document.getElementById('verifyName')?.value||'').trim();
+  const cls=(document.getElementById('verifyClass')?.value||'').trim();
+  const xp=parseInt(document.getElementById('verifyXP')?.value)||0;
+  const vis=parseInt(document.getElementById('verifyVisited')?.value)||0;
+  const code=(document.getElementById('verifyCode')?.value||'').trim().toUpperCase();
   const ok = (code===makeCode(name,cls,xp,vis));
-  const r=document.getElementById('verifyResult'); r.textContent = ok?'Valid ✔':'Invalid ✖'; r.style.color = ok?'#38B000':'#FF5964';
+  const r=document.getElementById('verifyResult'); if(!r) return;
+  r.textContent = ok?'Valid ✔':'Invalid ✖'; r.style.color = ok?'#38B000':'#FF5964';
 }
 
 /* ===================== Input & Boot ===================== */
@@ -805,29 +792,21 @@ function bindMapEvents(){
   mapCanvas.addEventListener('click', onMapClick);
 }
 document.addEventListener('keydown', e=>{
-  if(e.key==='m'||e.key==='M'){ state.sound=!state.sound; saveState(); updateHUD(); (state.sound?startAmbience():stopAmbience()); sfxClick(); }
+  if(e.key==='m'||e.key==='M'){ state.sound=!state.sound; saveState(); updateHUD(); playTone(660,.05); }
   if(e.key==='t'||e.key==='T'){ openVerify(); }
+  if(e.key==='j'||e.key==='J'){ openJournal(); }
   if(e.key==='Escape'){ closeVerify(); }
 });
 
 function init(){
   generateDither();
   mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
-  bindMapEvents();
+  buildSprites();
+  generateTopoBitmap(); buildMarkers(); bindMapEvents();
   loadState(); setupTitle(); updateHUD(); measureHud();
+  const close=document.getElementById('modalClose'); if(close) close.onclick=closeVerify;
+  const verify=document.getElementById('verifyBtn'); if(verify) verify.onclick=checkVerify;
+  const snd=hud.sound(); if(snd) snd.onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); };
   window.addEventListener('resize', measureHud);
-
-  // build visuals
-  setMapLoading(true);
-  generateTopoBitmap(); buildMarkers(); buildSprites();
-  // HUD buttons (if present in HTML)
-  if(hud.journal()) hud.journal().onclick=()=>openJournal();
-  if(hud.cluesBtn()) hud.cluesBtn().onclick=()=>openClues();
-
-  document.getElementById('modalClose').onclick=closeVerify;
-  document.getElementById('verifyBtn').onclick=checkVerify;
-  hud.sound().onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); (state.sound?startAmbience():stopAmbience()); };
-
-  if(state.sound) startAmbience();
 }
 window.onload=init;
