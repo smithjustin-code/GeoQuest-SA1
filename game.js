@@ -17,8 +17,8 @@
   document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(overlay));
 })();
 
-/* ===================== Verify Code ===================== */
-const SECRET = "SC7Geo2025-SA";
+/* ===================== Verify Code (collision-proof) ===================== */
+window.__AA_SECRET = window.__AA_SECRET || "SC7Geo2025-SA";
 function fnv1aHex(str){
   let h = 0x811c9dc5>>>0;
   for(let i=0;i<str.length;i++){
@@ -29,7 +29,7 @@ function fnv1aHex(str){
 }
 function base36(n,pad=2){ return Math.max(0,n|0).toString(36).toUpperCase().padStart(pad,"0"); }
 function makeCode(name, cls, xp, visited){
-  const payload = `${SECRET}|${name}|${cls}|${xp}|${visited}|AndesAmazons`;
+  const payload = `${window.__AA_SECRET}|${name}|${cls}|${xp}|${visited}|AndesAmazons`;
   const sig = fnv1aHex(payload).slice(0,6);
   return `SA-${base36(xp)}${base36(visited)}-${sig}`;
 }
