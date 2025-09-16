@@ -223,28 +223,46 @@ function setupTitle(){
   }, 50);
 }
 function setupHQ(){
-  document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
-  const list=document.getElementById('caseList'); list.innerHTML='';
+  const intro = document.getElementById('hqIntro');
+  const list = document.getElementById('caseList');
+  list.innerHTML = '';
+
+  // Wait for DATA to be available
+  if (typeof DATA === 'undefined' || !Array.isArray(DATA.cases)) {
+    if (intro) intro.textContent = 'Loading case data…';
+    setTimeout(setupHQ, 60);
+    return;
+  }
+
+  if (intro) intro.textContent = 'Choose your case. Meet goals to resolve it.';
+
   DATA.cases.forEach(c=>{
     const box=document.createElement('div'); box.style.textAlign='left';
     box.innerHTML=`<strong>${c.title}</strong><p style="font-size:12px">${c.hook}</p>`;
     box.appendChild(btn('Play', ()=>{
       state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
       state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; state.clues=[]; state.leads=[];
-      computeLeads();
       saveState(); showScene('mapScreen'); enterMap();
     }));
     list.appendChild(box);
   });
 
-  document.getElementById('studentName').value=state.studentName;
-  document.getElementById('className').value=state.className;
+  // Inputs + buttons
+  document.getElementById('studentName').value=state.studentName||'';
+  document.getElementById('className').value=state.className||'';
 
   const hqBtns=document.getElementById('hqButtons'); hqBtns.innerHTML='';
   hqBtns.appendChild(btn('Save & Continue', ()=>{
     state.studentName=document.getElementById('studentName').value.trim();
     state.className=document.getElementById('className').value.trim();
-    saveState(); playTone(560,.06,'square',0.08);
+    saveState();
+  }));
+  // Optional quality-of-life: start the only case directly
+  hqBtns.appendChild(btn('Start Case', ()=>{
+    const c = DATA.cases[0];
+    state.currentCase=c.id; state.xp=0; state.tp=8; state.visited=[]; state.answered=[]; state.eventsSeen=[];
+    state.locationCountry=null; state.lastPlaceId=null; state.finalAnswered=false; state.clues=[]; state.leads=[];
+    saveState(); showScene('mapScreen'); enterMap();
   }));
   hqBtns.appendChild(btn('Back to Title', ()=>{ showScene('titleScreen'); setupTitle(); }));
 }
