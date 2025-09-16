@@ -1,3 +1,22 @@
+// --- Crash overlay (shows any JS error at the bottom of the screen) ---
+(function installCrashOverlay(){
+  const overlay = document.createElement('div');
+  overlay.id='crashOverlay';
+  overlay.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:40vh;overflow:auto;background:rgba(160,20,20,.92);color:#fff;font:12px monospace;z-index:99999;display:none;padding:8px';
+  function show(msg){
+    overlay.style.display='block';
+    const r = document.createElement('div');
+    r.textContent = msg;
+    overlay.appendChild(r);
+  }
+  window.addEventListener('error', e=>{ show('JS error: ' + (e.message || e.error)); });
+  window.addEventListener('unhandledrejection', e=>{
+    const reason = e.reason && (e.reason.message || e.reason);
+    show('Promise error: ' + reason);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(overlay));
+})();
+
 /* ===================== Verify Code ===================== */
 const SECRET = "SC7Geo2025-SA";
 function fnv1aHex(str){
@@ -66,7 +85,8 @@ function updateHUD(){
   hud.cls().textContent = state.className?`Class: ${state.className}`:'';
   hud.xp().textContent = `XP⭐ ${state.xp}`;
   hud.tp().textContent = `TP🚶 ${state.tp}`;
-  hud.visited().textContent = `Visited📍 ${state.visited.length}/${DATA.countries.length}`;
+ const totalCountries = (typeof DATA!=='undefined' && Array.isArray(DATA.countries)) ? DATA.countries.length : 0;
+  hud.visited().textContent = `Visited📍 ${state.visited.length}/${totalCountries || '?'}`;
   hud.sound().textContent = state.sound?'🔊':'🔇';
   measureHud();
 }
@@ -158,6 +178,7 @@ function addClue(id){
 
 /* ===================== Title & HQ ===================== */
 function setupTitle(){
+  // Ensure container exists
   let wrap = document.getElementById('titleButtons');
   if(!wrap){
     const container = document.querySelector('#titleScreen .center') || document.getElementById('titleScreen');
@@ -165,12 +186,15 @@ function setupTitle(){
     wrap.id = 'titleButtons';
     if(container) container.appendChild(wrap);
   }
+  // Render buttons FIRST so they appear even if another part errors later
   wrap.innerHTML='';
+  const goMap = ()=>{ showScene('mapScreen'); enterMap(); };
+  const goHQ  = ()=>{ showScene('hqScreen'); setupHQ(); };
 
   if(state.currentCase && !state.finalAnswered){
-    wrap.appendChild(btn('Continue', ()=>{ showScene('mapScreen'); enterMap(); }));
+    wrap.appendChild(btn('Continue', goMap));
   }else{
-    wrap.appendChild(btn('Start', ()=>{ showScene('hqScreen'); setupHQ(); }));
+    wrap.appendChild(btn('Start', goHQ));
   }
   wrap.appendChild(btn('New Game', ()=>{
     localStorage.removeItem("AndesAmazonsSave");
@@ -182,13 +206,21 @@ function setupTitle(){
     saveState(); setupTitle();
   }));
   wrap.appendChild(btn(state.sound?'Sound Off':'Sound On', ()=>{
-    state.sound=!state.sound; saveState(); setupTitle();
-    if(state.sound) startAmbience(); else stopAmbience();
+    state.sound=!state.sound; saveState();
+    setupTitle();
   }));
   wrap.appendChild(btn('How to Play', ()=>{
     const el=document.getElementById('howTo');
-    if(el) el.style.display = el.style.display==='none'?'block':'none';
+    if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
   }));
+
+  // If buttons didn't land due to an async hiccup, try once more shortly.
+  setTimeout(()=>{
+    if(!wrap.firstElementChild){
+      console.warn('Title buttons re-render attempt');
+      setupTitle();
+    }
+  }, 50);
 }
 function setupHQ(){
   document.getElementById('hqIntro').textContent='Choose your case. Meet goals to resolve it.';
@@ -800,13 +832,30 @@ document.addEventListener('keydown', e=>{
 
 function init(){
   generateDither();
-  mapCanvas=document.getElementById('mapCanvas'); mapCtx=mapCanvas.getContext('2d');
-  buildSprites();
-  generateTopoBitmap(); buildMarkers(); bindMapEvents();
-  loadState(); setupTitle(); updateHUD(); measureHud();
+  loadState();
+  setupTitle();                 // 1) Put the buttons on screen immediately
+  updateHUD(); measureHud();    // 2) Safe HUD update
+
+  // 3) Now wire up everything else
+  mapCanvas=document.getElementById('mapCanvas'); 
+  if(mapCanvas){
+    mapCtx=mapCanvas.getContext('2d');
+    buildSprites();
+    // generate the base map async-ish so the title stays responsive
+    requestAnimationFrame(()=>{
+      try{
+        generateTopoBitmap();
+        buildMarkers();
+        bindMapEvents();
+      }catch(err){ console.error(err); }
+    });
+  }
+
   const close=document.getElementById('modalClose'); if(close) close.onclick=closeVerify;
   const verify=document.getElementById('verifyBtn'); if(verify) verify.onclick=checkVerify;
   const snd=hud.sound(); if(snd) snd.onclick=()=>{ state.sound=!state.sound; saveState(); updateHUD(); };
+
   window.addEventListener('resize', measureHud);
 }
 window.onload=init;
+
