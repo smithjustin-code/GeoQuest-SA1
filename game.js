@@ -35,7 +35,6 @@ function makeCode(name, cls, xp, visited){
 }
 
 /* ===================== State & Save ===================== */
-/* ===================== State & Save (collision-proof) ===================== */
 function defaultState(){
   return {
     xp:0, tp:8, visited:[], answered:[], eventsSeen:[],
@@ -217,11 +216,7 @@ function setupTitle(){
   }
   wrap.appendChild(btn('New Game', ()=>{
     localStorage.removeItem("AndesAmazonsSave");
-    state = { xp:0,tp:8,visited:[],answered:[],eventsSeen:[],currentCase:null,finalAnswered:false,
-              studentName:"",className:"",sound:true,locationCountry:null,lastPlaceId:null,
-              isFlying:false,flightStart:0,flightDuration:0,planeX:0,planeY:0,
-              flightFromX:0,flightFromY:0,flightToX:0,flightToY:0,flightCtrlX:0,flightCtrlY:0,
-              flightDestCountry:null,flightDestPlace:null, clues:[], leads:[] };
+    resetState(hard=true)
     saveState(); setupTitle();
   }));
   wrap.appendChild(btn(state.sound?'Sound Off':'Sound On', ()=>{
