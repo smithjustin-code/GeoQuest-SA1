@@ -35,20 +35,39 @@ function makeCode(name, cls, xp, visited){
 }
 
 /* ===================== State & Save ===================== */
-let state = {
-  xp:0, tp:8, visited:[], answered:[], eventsSeen:[],
-  currentCase:null, finalAnswered:false,
-  studentName:"", className:"", sound:true,
-  locationCountry:null, lastPlaceId:null,
-  isFlying:false, flightStart:0, flightDuration:0,
-  planeX:0, planeY:0, flightFromX:0, flightFromY:0, flightToX:0, flightToY:0,
-  flightCtrlX:0, flightCtrlY:0,
-  flightDestCountry:null, flightDestPlace:null,
-  clues:[], leads:[]
-};
-function saveState(){ localStorage.setItem("AndesAmazonsSave", JSON.stringify(state)); }
-function loadState(){ try{ const s=JSON.parse(localStorage.getItem("AndesAmazonsSave")||"{}"); Object.assign(state,s);}catch{} }
+/* ===================== State & Save (collision-proof) ===================== */
+function defaultState(){
+  return {
+    xp:0, tp:8, visited:[], answered:[], eventsSeen:[],
+    currentCase:null, finalAnswered:false,
+    studentName:"", className:"", sound:true,
+    locationCountry:null, lastPlaceId:null,
+    isFlying:false, flightStart:0, flightDuration:0,
+    planeX:0, planeY:0, flightFromX:0, flightFromY:0, flightToX:0, flightToY:0,
+    flightCtrlX:0, flightCtrlY:0,
+    flightDestCountry:null, flightDestPlace:null,
+    clues:[], leads:[]
+  };
+}
+window.__AA_STATE = window.__AA_STATE || defaultState();
+const state = window.__AA_STATE;
 
+function saveState(){ try{ localStorage.setItem("AndesAmazonsSave", JSON.stringify(state)); }catch{} }
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem("AndesAmazonsSave")||"{}");
+    if (s && typeof s === 'object') Object.assign(state, s);
+  }catch{}
+}
+function resetState(hard=false){
+  const fresh = defaultState();
+  if(hard){
+    // clear existing keys to keep the same object reference
+    for(const k of Object.keys(state)) delete state[k];
+  }
+  Object.assign(state, fresh);
+  saveState();
+}
 /* ===================== UI Helpers ===================== */
 let ditherDataUrl="";
 function generateDither(){
